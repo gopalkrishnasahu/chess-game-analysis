@@ -1,9 +1,17 @@
+# Secrets
 .env
+
+# Personal analysis data (user-specific, not useful for others)
+mistake_log.md
+run_history.json
+core_patterns.json
 cache/
+chess_report.md
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
-chess_report.md
 *.egg-info/
 dist/
 build/
