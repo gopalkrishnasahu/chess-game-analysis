@@ -11,6 +11,23 @@ MIN_GAMES_FOR_OPENING = 4    # minimum games per opening family to report on it
 TIME_PRESSURE_SECS    = 15   # seconds threshold for "time pressure"
 EARLY_MIDDLE_MOVES    = (15, 25)
 
+MOVE_BUCKETS = [(1, 5), (6, 10), (11, 15), (16, 20), (21, 25), (26, 30), (31, 35), (36, 999)]
+
+_OPENING_TACTICAL_THEMES: dict[str, list[str]] = {
+    "Sicilian":       ["back-rank tactics", "knight outposts on d5/f5"],
+    "French":         ["pawn chain breaks (e5/f6)", "bishop pair dynamics"],
+    "Caro-Kann":      ["piece coordination after ...d5 exchanges", "minority attack"],
+    "King's Indian":  ["kingside pawn storms", "piece sacrifices on h6"],
+    "Queen's Gambit": ["hanging pawns", "minority attack on queenside"],
+    "Ruy Lopez":      ["back-rank tricks", "d5 breakthrough"],
+    "Italian":        ["f4-f5 kingside attack", "d4 central break"],
+    "English":        ["d5 pawn lever", "knight outpost on e4"],
+    "Nimzo-Indian":   ["doubled-pawn exploitation", "bishop pair dynamics"],
+    "Dutch":          ["kingside attack with ...g5", "stonewall structure"],
+    "Pirc":           ["g4-g5 kingside attacks", "d5 central thrusts"],
+    "Modern":         ["g4-g5 kingside attacks", "queenside counterplay"],
+}
+
 
 def detect_patterns(report: AnalysisReport, games: list[GameRecord]) -> AnalysisReport:
     """Populates report.weaknesses, report.strengths, and report.recommendations."""
@@ -25,6 +42,8 @@ def detect_patterns(report: AnalysisReport, games: list[GameRecord]) -> Analysis
     weaknesses.extend(_opening_struggles(report))
     weaknesses.extend(_piece_handling_issues(games_with_evals))
     weaknesses.extend(_worst_phase_pattern(report))
+    weaknesses.extend(_loss_type_pattern(report))
+    weaknesses.extend(_blunder_move_range_pattern(games_with_evals, report))
 
     strengths.extend(_opening_strengths(report))
     strengths.extend(_equal_position_accuracy(games_with_evals))
@@ -140,23 +159,31 @@ def _opening_struggles(report: AnalysisReport) -> list[PatternFinding]:
     for family, s in report.opening_stats.items():
         if s.games_played < MIN_GAMES_FOR_OPENING:
             continue
-        if s.win_rate < 0.40 and s.avg_blunders >= 1.8:
-            desc = (
-                f"{family}: {s.wins}W-{s.draws}D-{s.losses}L "
-                f"({int(s.win_rate*100)}% win rate, {s.avg_blunders:.1f} blunders/game)"
+        if not (s.win_rate < 0.40 and s.avg_blunders >= 1.8):
+            continue
+        desc = (
+            f"{family}: {s.wins}W-{s.draws}D-{s.losses}L "
+            f"({int(s.win_rate*100)}% win rate, {s.avg_blunders:.1f} blunders/game)"
+        )
+        themes = _lookup_opening_themes(family)
+        if themes:
+            tactic_hint = (
+                f" In particular, study tactical motifs common to this opening: "
+                f"{', '.join(themes[:2])}."
             )
-            patterns.append(PatternFinding(
-                category="opening_struggle",
-                description=desc,
-                frequency=s.games_played,
-                severity="moderate",
-                example_game_ids=[],
-                recommendation=(
-                    f"You're struggling in the {family}. Consider learning one solid "
-                    f"variation deeply (e.g. pick a main line and study it to move 15) "
-                    f"rather than playing it by feel."
-                ),
-            ))
+        else:
+            tactic_hint = ""
+        patterns.append(PatternFinding(
+            category="opening_struggle",
+            description=desc,
+            frequency=s.games_played,
+            severity="moderate",
+            example_game_ids=[],
+            recommendation=(
+                f"You're struggling in the {family}. Pick one solid variation and study it "
+                f"to move 15 rather than playing it by feel.{tactic_hint}"
+            ),
+        ))
     return patterns
 
 
@@ -317,7 +344,162 @@ def _build_recommendations(report: AnalysisReport, games: list[GameRecord]) -> l
             "After games, request computer analysis on Lichess to get more eval data for future runs."
         )
 
-    return recs[:6]  # cap at 6 recommendations
+    return recs[:8]  # cap at 8 recommendations
+
+
+# ----------------------------------------------
+# New weakness detectors (Phase 2)
+# ----------------------------------------------
+
+def _loss_type_pattern(report: AnalysisReport) -> list[PatternFinding]:
+    """Flags if a large share of losses came from time forfeit or tactical collapse."""
+    if report.losses < 3:
+        return []
+
+    results = []
+    time_pct     = report.losses_by_time / report.losses
+    collapse_pct = report.losses_by_collapse / report.losses
+
+    if time_pct >= 0.40:
+        results.append(PatternFinding(
+            category="loss_by_time_forfeit",
+            description=(
+                f"{report.losses_by_time} of your {report.losses} losses "
+                f"({int(time_pct * 100)}%) were time forfeits"
+            ),
+            frequency=report.losses_by_time,
+            severity="critical" if time_pct >= 0.60 else "moderate",
+            example_game_ids=[],
+            recommendation=(
+                "Most of your losses are on the clock, not the board. "
+                "Practise making 'good enough' moves quickly: in 3+2, aim to keep at least "
+                "20s per move through move 30. Pre-move on forced recaptures to bank extra time."
+            ),
+        ))
+
+    if collapse_pct >= 0.50:
+        results.append(PatternFinding(
+            category="loss_by_tactical_collapse",
+            description=(
+                f"{report.losses_by_collapse} of your {report.losses} losses "
+                f"({int(collapse_pct * 100)}%) involved 2+ blunders — "
+                f"tactical collapse rather than being outplayed positionally"
+            ),
+            frequency=report.losses_by_collapse,
+            severity="critical" if collapse_pct >= 0.70 else "moderate",
+            example_game_ids=[],
+            recommendation=(
+                "You're losing games you could hold — tactical collapses with multiple blunders "
+                "per game. Before every move, ask: 'What can my opponent do?' Solve 10 defensive "
+                "tactics puzzles daily (Lichess Puzzles, filter by Fork, Pin, Skewer)."
+            ),
+        ))
+
+    return results
+
+
+def _blunder_move_range_pattern(
+    games: list[GameRecord],
+    report: AnalysisReport,
+) -> list[PatternFinding]:
+    """
+    Finds the 5-move window with the highest blunder concentration.
+    Only fires if the worst bucket is OUTSIDE moves 16-25
+    (those are already covered by _early_middlegame_collapse).
+    Requires >= 10 total blunders for a reliable signal.
+    """
+    bucket_counts: dict[tuple[int, int], int] = {b: 0 for b in MOVE_BUCKETS}
+
+    for game in games:
+        for m in game.moves:
+            if m.color != game.player_color or not m.is_blunder:
+                continue
+            for lo, hi in MOVE_BUCKETS:
+                if lo <= m.move_number <= hi:
+                    bucket_counts[(lo, hi)] += 1
+                    break
+
+    total_blunders = sum(bucket_counts.values())
+    if total_blunders < 10:
+        return []
+
+    worst_bucket = max(bucket_counts, key=bucket_counts.get)
+    worst_count  = bucket_counts[worst_bucket]
+    worst_pct    = worst_count / total_blunders
+
+    lo, hi = worst_bucket
+    # Skip if already covered by _early_middlegame_collapse
+    if (lo, hi) in {(16, 20), (21, 25)}:
+        return []
+
+    if worst_pct < 0.30:
+        return []
+
+    # Write back to report for potential future display use
+    hi_label = hi if hi != 999 else "+"
+    report.blunder_spike_range = f"moves {lo}-{hi_label}"
+    report.blunder_spike_count = worst_count
+    report.blunder_spike_pct   = worst_pct
+
+    return [PatternFinding(
+        category="blunder_spike_range",
+        description=(
+            f"{worst_count} blunders ({int(worst_pct * 100)}% of all your blunders) "
+            f"cluster at moves {lo}-{hi_label} — a {_phase_hint_for_range(lo)} transition"
+        ),
+        frequency=worst_count,
+        severity="critical" if worst_pct >= 0.45 else "moderate",
+        example_game_ids=[],
+        recommendation=_range_recommendation(lo, hi),
+    )]
+
+
+def _lookup_opening_themes(family: str) -> list[str]:
+    """Exact match then prefix match against _OPENING_TACTICAL_THEMES."""
+    if family in _OPENING_TACTICAL_THEMES:
+        return _OPENING_TACTICAL_THEMES[family]
+    for key, themes in _OPENING_TACTICAL_THEMES.items():
+        if family.startswith(key):
+            return themes
+    return []
+
+
+def _phase_hint_for_range(move_start: int) -> str:
+    if move_start <= 10:
+        return "late-opening"
+    if move_start <= 15:
+        return "opening-to-middlegame"
+    if move_start <= 25:
+        return "early-middlegame"
+    if move_start <= 35:
+        return "middlegame-to-endgame"
+    return "deep endgame"
+
+
+def _range_recommendation(lo: int, hi: int) -> str:
+    hi_label = hi if hi != 999 else "+"
+    if lo <= 10:
+        return (
+            f"You're blundering most at moves {lo}-{hi_label}, still in the opening. "
+            "Review your opening preparation to move 12 in your main lines and ensure "
+            "you know the key threats in each position before leaving theory."
+        )
+    if lo <= 15:
+        return (
+            f"Moves {lo}-{hi_label} are your danger zone — the opening-to-middlegame transition. "
+            "Pause after your last known theory move and ask: 'What is the plan from here?' "
+            "before committing to a move."
+        )
+    if lo <= 30:
+        return (
+            f"You're struggling at moves {lo}-{hi_label}, likely a middlegame-to-endgame "
+            "transition. Practise recognising when to trade pieces and simplify, "
+            "and solve tactical puzzles from complex middlegame positions."
+        )
+    return (
+        f"Your blunders concentrate at moves {lo}-{hi_label} — deep endgame errors. "
+        "Study rook endgames and pawn endgame technique on Lichess Endgame Practice."
+    )
 
 
 # ----------------------------------------------

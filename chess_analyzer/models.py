@@ -99,6 +99,16 @@ class AnalysisReport:
     strengths: list[PatternFinding]
     recommendations: list[str]
 
+    # loss type breakdown (defaulted — populated by analyzer.py)
+    losses_by_time: int = 0               # termination == "Time forfeit"
+    losses_by_collapse: int = 0           # not time, has evals, >= 2 blunders in game
+    losses_by_resignation_clean: int = 0  # residual (outplayed or no eval data)
+
+    # blunder spike (defaulted — set by patterns.py)
+    blunder_spike_range: Optional[str] = None   # e.g. "moves 6-10"
+    blunder_spike_count: int = 0
+    blunder_spike_pct: float = 0.0
+
 
 @dataclass
 class GameRecord:

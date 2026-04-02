@@ -68,6 +68,7 @@ def aggregate_games(games: list[GameRecord], username: str) -> AnalysisReport:
     wins   = sum(1 for g in games if g.player_won)
     draws  = sum(1 for g in games if g.player_drew)
     losses = len(games) - wins - draws
+    loss_types = _classify_losses(games)
 
     # Collect all player moves (only from games with evals for error stats)
     player_moves_eval = [
@@ -97,6 +98,9 @@ def aggregate_games(games: list[GameRecord], username: str) -> AnalysisReport:
         wins=wins,
         draws=draws,
         losses=losses,
+        losses_by_time=loss_types["time"],
+        losses_by_collapse=loss_types["collapse"],
+        losses_by_resignation_clean=loss_types["clean"],
         total_blunders=total_blunders,
         total_mistakes=total_mistakes,
         total_inaccuracies=total_inaccuracies,
@@ -232,3 +236,25 @@ def _compute_date_range(games: list[GameRecord]) -> tuple[str, str]:
         return ("unknown", "unknown")
     dates.sort()
     return (dates[-1], dates[0])  # newest first
+
+
+def _classify_losses(games: list[GameRecord]) -> dict[str, int]:
+    """
+    Splits losses into three categories:
+      - 'time':     lost_by_time is True
+      - 'collapse': NOT time, has eval data, player made >= 2 blunders in that game
+      - 'clean':    everything else (no eval data OR <= 1 blunder in loss)
+    """
+    counts = {"time": 0, "collapse": 0, "clean": 0}
+    for g in games:
+        if g.player_won or g.player_drew:
+            continue
+        if g.lost_by_time:
+            counts["time"] += 1
+        elif g.has_evals and sum(
+            1 for m in g.moves if m.color == g.player_color and m.is_blunder
+        ) >= 2:
+            counts["collapse"] += 1
+        else:
+            counts["clean"] += 1
+    return counts

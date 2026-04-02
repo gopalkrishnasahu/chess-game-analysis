@@ -3,6 +3,7 @@ Generates the analysis report.
 - Terminal output: uses the `rich` library for colour and formatting.
 - Markdown output: writes chess_report.md.
 """
+import sys
 from typing import Optional
 
 from rich.console import Console
@@ -16,6 +17,8 @@ from .models import AnalysisReport, OpeningStats, PatternFinding
 LICHESS_GAME_URL = "https://lichess.org/"
 
 console = Console(force_terminal=True, highlight=False)
+
+_TABLE_BOX = box.SIMPLE_HEAD if sys.platform == "win32" else box.SIMPLE
 
 
 # --------------------------------------------
@@ -61,6 +64,16 @@ def _print_performance(report: AnalysisReport) -> None:
         f"[red]{report.losses}L[/red]  "
         f"([green]{win_pct}%[/green] / {draw_pct}% / [red]{loss_pct}%[/red])"
     )
+    if report.losses > 0:
+        parts = []
+        if report.losses_by_time > 0:
+            parts.append(f"[red]{report.losses_by_time} on time[/red]")
+        if report.losses_by_collapse > 0:
+            parts.append(f"[yellow]{report.losses_by_collapse} tactical collapse[/yellow]")
+        if report.losses_by_resignation_clean > 0:
+            parts.append(f"{report.losses_by_resignation_clean} outplayed")
+        if parts:
+            console.print(f"  Loss breakdown:  {' / '.join(parts)}")
     if report.games_with_evals > 0:
         console.print(
             f"  Blunders/game:   [red]{report.blunders_per_game:.1f}[/red]   "
@@ -93,7 +106,7 @@ def _print_openings(report: AnalysisReport) -> None:
 
     console.print("\n[bold]OPENING BREAKDOWN[/bold]  [dim](>=4 games)[/dim]")
 
-    table = Table(box=box.SIMPLE, show_header=True, header_style="bold")
+    table = Table(box=_TABLE_BOX, show_header=True, header_style="bold")
     table.add_column("Opening",          style="cyan",   min_width=28)
     table.add_column("Games",            justify="right")
     table.add_column("W/D/L",            justify="center")
@@ -174,25 +187,9 @@ def _print_recommendations(report: AnalysisReport) -> None:
         return
     console.print("\n[bold]RECOMMENDATIONS[/bold]  [dim](ordered by impact)[/dim]")
     for i, rec in enumerate(report.recommendations, 1):
-        # Wrap long lines
-        wrapped = _wrap(rec, width=90)
-        console.print(f"\n  [bold cyan]{i}.[/bold cyan] {wrapped}")
-
-
-def _wrap(text: str, width: int = 90) -> str:
-    """Simple word-wrap for terminal output."""
-    words = text.split()
-    lines = []
-    current = ""
-    for word in words:
-        if len(current) + len(word) + 1 > width:
-            lines.append(current)
-            current = "     " + word   # indent continuation lines
-        else:
-            current = (current + " " + word).lstrip()
-    if current.strip():
-        lines.append(current)
-    return "\n".join(lines)
+        label = Text(f"\n  {i}. ", style="bold cyan")
+        body  = Text(rec)
+        console.print(label + body)
 
 
 # --------------------------------------------
@@ -220,6 +217,18 @@ def write_markdown_report(report: AnalysisReport, output_path: str) -> None:
     total = report.wins + report.draws + report.losses or 1
     lines += [
         f"| Win / Draw / Loss | {report.wins}W / {report.draws}D / {report.losses}L ({int(report.wins/total*100)}% win rate) |",
+    ]
+    if report.losses > 0:
+        loss_parts = []
+        if report.losses_by_time > 0:
+            loss_parts.append(f"{report.losses_by_time} on time")
+        if report.losses_by_collapse > 0:
+            loss_parts.append(f"{report.losses_by_collapse} tactical collapse")
+        if report.losses_by_resignation_clean > 0:
+            loss_parts.append(f"{report.losses_by_resignation_clean} outplayed cleanly")
+        if loss_parts:
+            lines.append(f"| Loss breakdown | {' / '.join(loss_parts)} |")
+    lines += [
         f"| Blunders per game | {report.blunders_per_game:.2f} |",
         f"| Mistakes per game | {report.mistakes_per_game:.2f} |",
         f"| Inaccuracies per game | {report.total_inaccuracies / max(1, report.games_with_evals):.2f} |",
