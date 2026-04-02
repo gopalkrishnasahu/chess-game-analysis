@@ -1,0 +1,11 @@
+[
+  {
+    "date": "2026-04-01",
+    "games": 43,
+    "win_pct": 58,
+    "blunders_per_game": 1.24,
+    "mistakes_per_game": 2.16,
+    "worst_phase": "middlegame",
+    "eval_games": 25
+  }
+]

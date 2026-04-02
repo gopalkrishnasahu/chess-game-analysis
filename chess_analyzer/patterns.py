@@ -1,0 +1,368 @@
+"""
+Pattern detection: identifies recurring weaknesses and strengths across games.
+Operates on a list of processed GameRecords and mutates the AnalysisReport in place.
+"""
+import chess
+from collections import defaultdict
+
+from .models import AnalysisReport, GameRecord, PatternFinding
+
+MIN_GAMES_FOR_OPENING = 4    # minimum games per opening family to report on it
+TIME_PRESSURE_SECS    = 15   # seconds threshold for "time pressure"
+EARLY_MIDDLE_MOVES    = (15, 25)
+
+
+def detect_patterns(report: AnalysisReport, games: list[GameRecord]) -> AnalysisReport:
+    """Populates report.weaknesses, report.strengths, and report.recommendations."""
+    games_with_evals = [g for g in games if g.has_evals]
+
+    weaknesses: list[PatternFinding] = []
+    strengths:  list[PatternFinding] = []
+
+    weaknesses.extend(_time_pressure_pattern(games_with_evals))
+    weaknesses.extend(_early_middlegame_collapse(games_with_evals))
+    weaknesses.extend(_endgame_conversion_failures(games_with_evals))
+    weaknesses.extend(_opening_struggles(report))
+    weaknesses.extend(_piece_handling_issues(games_with_evals))
+    weaknesses.extend(_worst_phase_pattern(report))
+
+    strengths.extend(_opening_strengths(report))
+    strengths.extend(_equal_position_accuracy(games_with_evals))
+
+    report.weaknesses = sorted(weaknesses, key=lambda p: _severity_order(p.severity))
+    report.strengths  = sorted(strengths,  key=lambda p: -p.frequency)
+    report.recommendations = _build_recommendations(report, games)
+
+    return report
+
+
+# ----------------------------------------------
+# Weakness detectors
+# ----------------------------------------------
+
+def _time_pressure_pattern(games: list[GameRecord]) -> list[PatternFinding]:
+    hits = [
+        (g, m) for g in games for m in g.moves
+        if m.color == g.player_color
+        and m.is_blunder
+        and m.clock_remaining is not None
+        and m.clock_remaining < TIME_PRESSURE_SECS
+    ]
+    if len(hits) < 3:
+        return []
+    example_ids = _unique_game_ids([g for g, _ in hits], limit=3)
+    pct = int(len(hits) / max(1, sum(
+        1 for g in games for m in g.moves
+        if m.color == g.player_color and m.is_blunder
+    )) * 100)
+    return [PatternFinding(
+        category="time_pressure",
+        description=f"{len(hits)} blunders made with <{TIME_PRESSURE_SECS}s remaining ({pct}% of all your blunders)",
+        frequency=len(hits),
+        severity="critical" if len(hits) >= 8 else "moderate",
+        example_game_ids=example_ids,
+        recommendation=(
+            "Manage your clock earlier. Aim to reach move 25 with at least 40s remaining in 3+2. "
+            "In time pressure, play ANY reasonable move within 3 seconds rather than burning "
+            "10+ seconds for the perfect move."
+        ),
+    )]
+
+
+def _early_middlegame_collapse(games: list[GameRecord]) -> list[PatternFinding]:
+    hits = [
+        (g, m) for g in games for m in g.moves
+        if m.color == g.player_color
+        and m.is_blunder
+        and EARLY_MIDDLE_MOVES[0] <= m.move_number <= EARLY_MIDDLE_MOVES[1]
+    ]
+    if len(hits) < 3:
+        return []
+    example_ids = _unique_game_ids([g for g, _ in hits], limit=3)
+    return [PatternFinding(
+        category="early_middlegame",
+        description=f"{len(hits)} blunders on moves {EARLY_MIDDLE_MOVES[0]}-{EARLY_MIDDLE_MOVES[1]} (the transition out of the opening)",
+        frequency=len(hits),
+        severity="critical" if len(hits) >= 6 else "moderate",
+        example_game_ids=example_ids,
+        recommendation=(
+            "You're struggling in the early middlegame transition (moves 15-25). "
+            "After leaving your opening preparation, pause and ask: 'What is my opponent threatening?' "
+            "before each move. Tactical puzzles focused on move 15-25 positions will help."
+        ),
+    )]
+
+
+def _endgame_conversion_failures(games: list[GameRecord]) -> list[PatternFinding]:
+    """Games where the player had a winning position in the endgame but didn't win."""
+    failures = []
+    for game in games:
+        endgame_moves = [m for m in game.moves if m.phase == "endgame"]
+        if not endgame_moves:
+            continue
+        # Find the eval for the player at the start of the endgame
+        first_endgame_eval = next(
+            (m.eval_after for m in endgame_moves if m.eval_after is not None), None
+        )
+        if first_endgame_eval is None:
+            continue
+        # Player's eval at endgame start (positive = player is winning)
+        if game.player_color == chess.WHITE:
+            player_eval = first_endgame_eval
+        else:
+            player_eval = -first_endgame_eval
+
+        if player_eval >= 1.5 and not game.player_won:
+            failures.append(game)
+
+    if len(failures) < 2:
+        return []
+    example_ids = _unique_game_ids(failures, limit=3)
+    return [PatternFinding(
+        category="endgame_conversion",
+        description=(
+            f"Failed to convert {len(failures)} winning endgame positions "
+            f"(had >=+1.5 eval entering endgame but didn't win)"
+        ),
+        frequency=len(failures),
+        severity="critical" if len(failures) >= 5 else "moderate",
+        example_game_ids=example_ids,
+        recommendation=(
+            "Your endgame technique needs work. Focus on: (1) Rook + King vs King, "
+            "(2) Queen + King vs King, (3) King and pawn endgames. "
+            "Practice on Lichess Endgame Practice or work through Silman's Endgame Course Part 1."
+        ),
+    )]
+
+
+def _opening_struggles(report: AnalysisReport) -> list[PatternFinding]:
+    patterns = []
+    for family, s in report.opening_stats.items():
+        if s.games_played < MIN_GAMES_FOR_OPENING:
+            continue
+        if s.win_rate < 0.40 and s.avg_blunders >= 1.8:
+            desc = (
+                f"{family}: {s.wins}W-{s.draws}D-{s.losses}L "
+                f"({int(s.win_rate*100)}% win rate, {s.avg_blunders:.1f} blunders/game)"
+            )
+            patterns.append(PatternFinding(
+                category="opening_struggle",
+                description=desc,
+                frequency=s.games_played,
+                severity="moderate",
+                example_game_ids=[],
+                recommendation=(
+                    f"You're struggling in the {family}. Consider learning one solid "
+                    f"variation deeply (e.g. pick a main line and study it to move 15) "
+                    f"rather than playing it by feel."
+                ),
+            ))
+    return patterns
+
+
+def _piece_handling_issues(games: list[GameRecord]) -> list[PatternFinding]:
+    """Checks if a particular piece type appears disproportionately in blunders."""
+    piece_blunders: dict[str, int]  = defaultdict(int)
+    piece_total:    dict[str, int]  = defaultdict(int)
+
+    for game in games:
+        for m in game.moves:
+            if m.color != game.player_color:
+                continue
+            piece = _piece_from_san(m.san)
+            piece_total[piece] += 1
+            if m.is_blunder:
+                piece_blunders[piece] += 1
+
+    patterns = []
+    total_moves = sum(piece_total.values()) or 1
+    total_blunders = sum(piece_blunders.values()) or 1
+
+    for piece, blunder_count in piece_blunders.items():
+        if blunder_count < 3:
+            continue
+        move_share   = piece_total[piece] / total_moves
+        blunder_share = blunder_count / total_blunders
+        # Only flag if blunder share is at least 2x the move share
+        if blunder_share >= move_share * 2.0 and blunder_share >= 0.20:
+            piece_name = _piece_name(piece)
+            patterns.append(PatternFinding(
+                category="piece_handling",
+                description=(
+                    f"{piece_name} moves account for {int(blunder_share*100)}% of your blunders "
+                    f"but only {int(move_share*100)}% of your moves"
+                ),
+                frequency=blunder_count,
+                severity="moderate",
+                example_game_ids=[],
+                recommendation=(
+                    f"Be more careful when moving your {piece_name.lower()}. "
+                    f"Before each {piece_name.lower()} move, verify: can it be captured? "
+                    f"Does it leave another piece hanging?"
+                ),
+            ))
+    return patterns
+
+
+def _worst_phase_pattern(report: AnalysisReport) -> list[PatternFinding]:
+    rates = report.phase_error_rates
+    if not rates:
+        return []
+    worst_phase = max(rates, key=rates.get)
+    worst_rate  = rates[worst_phase]
+    # Only flag if clearly worse than the best phase
+    best_rate = min(rates.values())
+    if worst_rate < 2.0 or worst_rate < best_rate * 1.5:
+        return []
+    return [PatternFinding(
+        category="phase_weakness",
+        description=(
+            f"Your {worst_phase} is your weakest phase: "
+            f"{worst_rate:.1f} serious errors per 10 moves "
+            f"(vs {best_rate:.1f} in your best phase)"
+        ),
+        frequency=int(worst_rate * 10),
+        severity="moderate",
+        example_game_ids=[],
+        recommendation=_phase_recommendation(worst_phase),
+    )]
+
+
+# ----------------------------------------------
+# Strength detectors
+# ----------------------------------------------
+
+def _opening_strengths(report: AnalysisReport) -> list[PatternFinding]:
+    patterns = []
+    for family, s in report.opening_stats.items():
+        if s.games_played < MIN_GAMES_FOR_OPENING:
+            continue
+        if s.win_rate >= 0.58 and s.avg_blunders <= 1.2:
+            desc = (
+                f"{family}: {s.wins}W-{s.draws}D-{s.losses}L "
+                f"({int(s.win_rate*100)}% win rate, {s.avg_blunders:.1f} blunders/game)"
+            )
+            patterns.append(PatternFinding(
+                category="opening_strength",
+                description=desc,
+                frequency=s.games_played,
+                severity="minor",
+                example_game_ids=[],
+                recommendation=f"Keep playing the {family} -- it's working well for you.",
+            ))
+    return patterns
+
+
+def _equal_position_accuracy(games: list[GameRecord]) -> list[PatternFinding]:
+    """Checks how well the player plays from near-equal positions (eval between -0.5 and +0.5)."""
+    total_equal_moves = 0
+    errors_in_equal   = 0
+
+    for game in games:
+        for m in game.moves:
+            if m.color != game.player_color or m.eval_before is None:
+                continue
+            player_eval = m.eval_before if game.player_color == chess.WHITE else -m.eval_before
+            if -0.5 <= player_eval <= 0.5:
+                total_equal_moves += 1
+                if m.is_blunder or m.is_mistake:
+                    errors_in_equal += 1
+
+    if total_equal_moves < 20:
+        return []
+
+    error_rate = errors_in_equal / total_equal_moves
+    if error_rate <= 0.04:   # < 4% error rate in equal positions = strength
+        return [PatternFinding(
+            category="equal_position_accuracy",
+            description=(
+                f"Good accuracy in equal positions: only {int(error_rate*100)}% serious error rate "
+                f"across {total_equal_moves} moves from balanced positions"
+            ),
+            frequency=total_equal_moves,
+            severity="minor",
+            example_game_ids=[],
+            recommendation="You handle equal positions well -- keep playing solidly and look to outplay opponents slowly.",
+        )]
+    return []
+
+
+# ----------------------------------------------
+# Recommendations
+# ----------------------------------------------
+
+def _build_recommendations(report: AnalysisReport, games: list[GameRecord]) -> list[str]:
+    recs = []
+
+    # Priority 1: biggest weakness patterns
+    for p in report.weaknesses:
+        if p.severity == "critical":
+            recs.append(p.recommendation)
+
+    # Priority 2: moderate weaknesses
+    for p in report.weaknesses:
+        if p.severity == "moderate" and p.recommendation not in recs:
+            recs.append(p.recommendation)
+
+    # Priority 3: general advice based on stats
+    if report.blunders_per_game >= 2.5:
+        recs.append(
+            "Before every move, use the 'blunder check': scan for your opponent's threats "
+            "and verify your piece isn't hanging after you move."
+        )
+
+    if report.games_with_evals < report.games_analyzed * 0.4:
+        recs.append(
+            f"Only {report.games_with_evals}/{report.games_analyzed} games had eval data. "
+            "After games, request computer analysis on Lichess to get more eval data for future runs."
+        )
+
+    return recs[:6]  # cap at 6 recommendations
+
+
+# ----------------------------------------------
+# Helpers
+# ----------------------------------------------
+
+def _unique_game_ids(games: list[GameRecord], limit: int = 3) -> list[str]:
+    seen = set()
+    result = []
+    for g in games:
+        if g.game_id not in seen:
+            seen.add(g.game_id)
+            result.append(g.game_id)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def _piece_from_san(san: str) -> str:
+    """Returns the piece letter from SAN ('N', 'B', 'R', 'Q', 'K', or 'P' for pawns)."""
+    if not san or san[0] not in "NBRQK":
+        return "P"
+    return san[0]
+
+
+def _piece_name(letter: str) -> str:
+    return {"N": "Knight", "B": "Bishop", "R": "Rook", "Q": "Queen", "K": "King", "P": "Pawn"}.get(letter, letter)
+
+
+def _severity_order(severity: str) -> int:
+    return {"critical": 0, "moderate": 1, "minor": 2}.get(severity, 3)
+
+
+def _phase_recommendation(phase: str) -> str:
+    if phase == "endgame":
+        return (
+            "Study endgame fundamentals: king activity, pawn promotion, rook endgames. "
+            "Do 10 endgame practice sessions on Lichess."
+        )
+    if phase == "middlegame":
+        return (
+            "Improve your middlegame by solving 10-15 tactical puzzles daily on Lichess. "
+            "Also study basic positional concepts: piece activity, pawn structure, open files."
+        )
+    return (
+        "Review your opening repertoire. Learn the key ideas of your chosen openings "
+        "to move 12-15, not just the first few moves."
+    )

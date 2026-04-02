@@ -1,0 +1,11 @@
+.env
+cache/
+__pycache__/
+*.pyc
+*.pyo
+chess_report.md
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
