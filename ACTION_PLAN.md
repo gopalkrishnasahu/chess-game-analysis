@@ -99,6 +99,64 @@ docker run -e LICHESS_USERNAME=yourname ghcr.io/you/chess-insight
 
 ---
 
+## Phase 3.6 — AI Coach Layer (High Impact for ELO Growth)
+
+**Mission:** Bridge the gap between diagnosis (what the app already does) and improvement (what players actually need). The app currently says *what* is wrong. This phase makes it say *why* and *exactly what to do about it*.
+
+### 3.6.1 LLM-Powered Personalised Coach Report
+**Why:** Numbers alone don't change behaviour. A personalised narrative from an AI coach — written in plain English, using the player's actual game data — is far more actionable than template strings.
+
+**How:**
+- Add a "Generate AI Coach Report" button on the report page
+- On click: POST to `/coach-report/<token>` — server serialises `AnalysisReport` to JSON and sends to LLM API
+- Prompt includes: blunder rates, worst phase, loss types, struggling openings, blunder move range, W/D/L
+- LLM returns: 400–500 word personalised report with specific study advice tied to the player's actual weaknesses
+- Render result in a new card below the recommendations section
+- Use Claude API (claude-haiku-4-5-20251001 for speed/cost, or claude-sonnet-4-6 for depth) or OpenAI GPT-4o
+- API key stored in `.env` / Render environment variable — not committed
+
+**Files:** `app.py` (new `/coach-report/<token>` route), `templates/report.html` (button + result card), `chess_analyzer/coach.py` (prompt builder + LLM call)
+
+**Cost estimate:** ~$0.002–0.005 per report with Haiku. Negligible for a small public tool.
+
+### 3.6.2 In-App Study Plan (Action Plan Tab)
+**Why:** The report shows what to fix. The study plan shows *when* and *how* — turning analysis into a week-by-week improvement programme the player can actually follow inside the app.
+
+**How:**
+- Second tab on the report page: "Study Plan"
+- LLM generates a 2–4 week plan based on the top 3 weaknesses: specific puzzle categories, opening lines to study, endgame drills
+- Each task links to a Lichess resource: puzzle categories (`lichess.org/training/<theme>`), studies, opening explorer
+- Player can check off tasks (localStorage persistence — no login needed)
+- "Re-analyse in 2 weeks" reminder prompt shown at the top
+
+**Files:** `templates/report.html` (tab UI + task checklist with localStorage), `chess_analyzer/coach.py` (extended prompt for study plan)
+
+### 3.6.3 Progress Tracking (Return Visitor Flow)
+**Why:** Without a feedback loop, players can't tell if they're improving on their specific weaknesses. This closes the loop.
+
+**How:**
+- After analysis, offer "Save this report" — generates a shareable/bookmarkable URL with the token persisted to disk (not just in-memory)
+- On re-analysis of the same username: compare current report vs saved baseline — show deltas (blunders/game ↓ 0.4, win rate ↑ 6%)
+- "You've improved your endgame error rate by 23% since your last analysis" type messaging
+- No account/login needed — reports stored server-side keyed by username+date, or exported as JSON for the player to upload next time
+
+**Files:** `app.py` (disk persistence for reports), `templates/report.html` (delta display), `chess_analyzer/diff.py` (report comparison logic)
+
+### 3.6.4 Lichess Resource Deep-Links
+**Why:** The recommendations currently say "study X" — this makes every recommendation a direct link the player can act on immediately.
+
+**How:**
+- Map each detected weakness to a Lichess resource URL:
+  - Tactical themes → `https://lichess.org/training/<theme>` (fork, pin, skewer, etc.)
+  - Opening family → `https://lichess.org/opening/<ECO-name>`
+  - Endgame drill → `https://lichess.org/practice`
+- These are static mappings in a `chess_analyzer/resources.py` dict — no LLM needed
+- Render as clickable buttons next to each recommendation in the report
+
+**Files:** `chess_analyzer/resources.py` (new, static mapping), `templates/report.html` (link buttons in recommendations)
+
+---
+
 ## Phase 4 — Advanced Analysis Features
 
 ### 4.1 Tactical Pattern Classification (with Stockfish)
