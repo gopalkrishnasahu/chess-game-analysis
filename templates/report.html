@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ r.username }} &mdash; Chess Analysis Report</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #0f1117; color: #e2e8f0; }
+    .card { background: #1a1f2e; border: 1px solid #2d3748; }
+    .table { color: #e2e8f0; }
+    .table-dark-custom { background: #1a1f2e; }
+    .table-dark-custom thead th { background: #2d3748; color: #90cdf4; border-color: #4a5568; }
+    .table-dark-custom td, .table-dark-custom th { border-color: #2d3748; }
+    .section-title { color: #90cdf4; font-size: 0.75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+    .phase-bar { height: 8px; border-radius: 4px; background: #2d3748; overflow: hidden; }
+    .phase-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+    .weakness-card { border-left: 3px solid; }
+    .weakness-card.critical { border-color: #fc8181; }
+    .weakness-card.moderate { border-color: #f6ad55; }
+    .strength-card { border-left: 3px solid #68d391; }
+    .rec-icon { font-size: 1.1rem; }
+    a { color: #63b3ed; }
+    a:hover { color: #90cdf4; }
+    .badge-critical { background: #742a2a; color: #fc8181; }
+    .badge-moderate { background: #7b341e; color: #f6ad55; }
+    .navbar-dark-custom { background: #1a1f2e; border-bottom: 1px solid #2d3748; }
+    .win-pct-high { color: #68d391; }
+    .win-pct-low  { color: #fc8181; }
+    .blunder-high { color: #fc8181; }
+    .blunder-low  { color: #68d391; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-dark-custom py-2 px-4 d-flex justify-content-between align-items-center">
+  <a href="/" class="text-decoration-none d-flex align-items-center gap-2">
+    <span style="font-size:1.4rem;">&#9822;</span>
+    <span class="fw-bold text-light">Chess Game Analyser</span>
+  </a>
+  <a href="/" class="btn btn-sm btn-outline-secondary">Analyse another player</a>
+</nav>
+
+<div class="container py-4">
+
+  <!-- Header -->
+  <div class="card p-4 mb-4">
+    <div class="row align-items-center">
+      <div class="col">
+        <h1 class="h3 fw-bold mb-1">{{ r.username }}</h1>
+        <p class="text-secondary mb-0 small">
+          {{ r.games_analyzed }} games &nbsp;&middot;&nbsp;
+          {{ r.date_range[1] }} to {{ r.date_range[0] }}
+          {% if r.games_with_evals < r.games_analyzed %}
+            &nbsp;&middot;&nbsp;
+            <span class="text-warning">{{ r.games_with_evals }} with eval data</span>
+          {% endif %}
+        </p>
+      </div>
+      {% set total = (r.wins + r.draws + r.losses) or 1 %}
+      <div class="col-auto text-end">
+        <span class="fs-4 fw-bold text-success">{{ r.wins }}W</span>
+        <span class="fs-4 fw-bold text-warning mx-1">{{ r.draws }}D</span>
+        <span class="fs-4 fw-bold text-danger">{{ r.losses }}L</span>
+        <div class="text-secondary small">{{ (r.wins / total * 100) | int }}% win rate</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- Left column -->
+    <div class="col-lg-4">
+
+      <!-- Performance -->
+      <div class="card p-3 mb-4">
+        <p class="section-title mb-3">Performance</p>
+
+        {% if r.losses > 0 %}
+          {% set loss_parts = [] %}
+          {% if r.losses_by_time > 0 %}{% set _ = loss_parts.append(r.losses_by_time ~ " on time") %}{% endif %}
+          {% if r.losses_by_collapse > 0 %}{% set _ = loss_parts.append(r.losses_by_collapse ~ " tactical collapse") %}{% endif %}
+          {% if r.losses_by_resignation_clean > 0 %}{% set _ = loss_parts.append(r.losses_by_resignation_clean ~ " outplayed") %}{% endif %}
+          {% if loss_parts %}
+          <div class="mb-3">
+            <div class="text-secondary small mb-1">Loss breakdown</div>
+            <div class="small">{{ loss_parts | join(" &nbsp;/&nbsp; ") }}</div>
+          </div>
+          {% endif %}
+        {% endif %}
+
+        {% if r.games_with_evals > 0 %}
+        <div class="row g-2 text-center">
+          <div class="col-4">
+            <div class="text-danger fw-bold fs-5">{{ "%.1f" | format(r.blunders_per_game) }}</div>
+            <div class="text-secondary" style="font-size:.7rem;">Blunders/game</div>
+          </div>
+          <div class="col-4">
+            <div class="text-warning fw-bold fs-5">{{ "%.1f" | format(r.mistakes_per_game) }}</div>
+            <div class="text-secondary" style="font-size:.7rem;">Mistakes/game</div>
+          </div>
+          <div class="col-4">
+            <div class="fw-bold fs-5">{{ "%.1f" | format(r.total_inaccuracies / [r.games_with_evals, 1] | max) }}</div>
+            <div class="text-secondary" style="font-size:.7rem;">Inaccuracies/game</div>
+          </div>
+        </div>
+        {% else %}
+        <p class="text-secondary small mb-0">No eval data — request computer analysis on Lichess after games to unlock error stats.</p>
+        {% endif %}
+      </div>
+
+      <!-- Phase Breakdown -->
+      {% if r.phase_error_rates %}
+      <div class="card p-3 mb-4">
+        <p class="section-title mb-3">Phase Breakdown <span class="text-secondary fw-normal normal-case" style="text-transform:none;letter-spacing:0;font-size:.75rem;">(errors per 10 moves)</span></p>
+        {% set worst = r.phase_error_rates | dictsort(by='value') | last %}
+        {% for phase in ['opening', 'middlegame', 'endgame'] %}
+          {% set rate = r.phase_error_rates.get(phase, 0) %}
+          {% set pct = [rate * 15, 100] | min | int %}
+          {% if rate >= 3.0 %}{% set color = "#fc8181" %}
+          {% elif rate >= 1.5 %}{% set color = "#f6ad55" %}
+          {% else %}{% set color = "#68d391" %}{% endif %}
+          <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+              <span class="small text-capitalize">{{ phase }}
+                {% if phase == worst[0] %}<span class="badge ms-1" style="background:#742a2a;color:#fc8181;font-size:.6rem;">WORST</span>{% endif %}
+              </span>
+              <span class="small fw-bold" style="color:{{ color }}">{{ "%.1f" | format(rate) }}</span>
+            </div>
+            <div class="phase-bar">
+              <div class="phase-bar-fill" style="width:{{ pct }}%;background:{{ color }};"></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Time Management -->
+      {% if r.avg_time_opening or r.avg_time_middlegame or r.avg_time_endgame %}
+      <div class="card p-3 mb-4">
+        <p class="section-title mb-3">Time Management</p>
+        <div class="small">
+          {% if r.avg_time_opening %}
+          <div class="d-flex justify-content-between mb-1">
+            <span class="text-secondary">Opening (avg/move)</span>
+            <span>{{ "%.1f" | format(r.avg_time_opening) }}s</span>
+          </div>
+          {% endif %}
+          {% if r.avg_time_middlegame %}
+          <div class="d-flex justify-content-between mb-1">
+            <span class="text-secondary">Middlegame (avg/move)</span>
+            <span>{{ "%.1f" | format(r.avg_time_middlegame) }}s</span>
+          </div>
+          {% endif %}
+          {% if r.avg_time_endgame %}
+          <div class="d-flex justify-content-between mb-1">
+            <span class="text-secondary">Endgame (avg/move)</span>
+            <span {% if r.avg_time_endgame > 60 %}class="text-warning"{% endif %}>{{ "%.1f" | format(r.avg_time_endgame) }}s</span>
+          </div>
+          {% endif %}
+          {% if r.time_pressure_blunders > 0 %}
+          <div class="mt-2 pt-2 border-top border-secondary">
+            <span class="text-danger">{{ r.time_pressure_blunders }}</span>
+            <span class="text-secondary"> time-pressure blunders across {{ r.time_pressure_games }} games</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- Right column -->
+    <div class="col-lg-8">
+
+      <!-- Openings -->
+      {% set qualifying = [] %}
+      {% for family, s in r.opening_stats.items() %}
+        {% if s.games_played >= 4 %}{% set _ = qualifying.append(s) %}{% endif %}
+      {% endfor %}
+      {% if qualifying %}
+      <div class="card p-3 mb-4">
+        <p class="section-title mb-3">Opening Breakdown <span class="text-secondary fw-normal" style="text-transform:none;letter-spacing:0;font-size:.75rem;">(4+ games)</span></p>
+        <div class="table-responsive">
+          <table class="table table-dark-custom table-sm mb-0">
+            <thead>
+              <tr>
+                <th>Opening</th>
+                <th class="text-center">Games</th>
+                <th class="text-center">W/D/L</th>
+                <th class="text-end">Win%</th>
+                <th class="text-end">Blunders/game</th>
+                <th class="text-center">As</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in qualifying | sort(attribute='games_played', reverse=True) %}
+              {% set wp = (s.win_rate * 100) | int %}
+              <tr>
+                <td class="small">{{ s.family[:32] }}</td>
+                <td class="text-center small">{{ s.games_played }}</td>
+                <td class="text-center small">{{ s.wins }}/{{ s.draws }}/{{ s.losses }}</td>
+                <td class="text-end small {% if wp >= 55 %}win-pct-high{% elif wp < 40 %}win-pct-low{% endif %}">{{ wp }}%</td>
+                <td class="text-end small {% if s.avg_blunders >= 2.0 %}blunder-high{% elif s.avg_blunders < 1.0 %}blunder-low{% endif %}">{{ "%.1f" | format(s.avg_blunders) }}</td>
+                <td class="text-center small text-secondary">
+                  {% if s.as_white %}W:{{ s.as_white }}{% endif %}
+                  {% if s.as_white and s.as_black %} {% endif %}
+                  {% if s.as_black %}B:{{ s.as_black }}{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Weaknesses -->
+      {% if r.weaknesses %}
+      <div class="card p-3 mb-4">
+        <p class="section-title mb-3">Weaknesses <span class="text-secondary fw-normal" style="text-transform:none;letter-spacing:0;font-size:.75rem;">address these first</span></p>
+        {% for w in r.weaknesses %}
+        <div class="card weakness-card {{ w.severity }} p-3 mb-3">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge badge-{{ w.severity }} small text-uppercase" style="font-size:.65rem;letter-spacing:.05em;">{{ w.severity }}</span>
+            <span class="fw-semibold small text-uppercase" style="letter-spacing:.05em;">{{ w.category.replace('_', ' ') }}</span>
+          </div>
+          <p class="small mb-2">{{ w.description }}</p>
+          {% if w.example_game_ids %}
+          <p class="small text-secondary mb-2">
+            Examples:
+            {% for gid in w.example_game_ids %}
+              <a href="https://lichess.org/{{ gid }}" target="_blank" rel="noopener">{{ gid }}</a>{% if not loop.last %}, {% endif %}
+            {% endfor %}
+          </p>
+          {% endif %}
+          <div class="small p-2 rounded" style="background:#0f1117;color:#90cdf4;">
+            &#128161; {{ w.recommendation }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Strengths -->
+      {% if r.strengths %}
+      <div class="card p-3 mb-4">
+        <p class="section-title mb-3">Strengths <span class="text-secondary fw-normal" style="text-transform:none;letter-spacing:0;font-size:.75rem;">keep doing these</span></p>
+        {% for s in r.strengths %}
+        <div class="card strength-card p-3 mb-2">
+          <p class="small mb-0 text-success">&#10003; {{ s.description }}</p>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Recommendations -->
+      {% if r.recommendations %}
+      <div class="card p-3 mb-4">
+        <p class="section-title mb-3">Recommendations <span class="text-secondary fw-normal" style="text-transform:none;letter-spacing:0;font-size:.75rem;">ordered by impact</span></p>
+        {% for rec in r.recommendations %}
+        <div class="d-flex gap-3 mb-3">
+          <div class="fw-bold text-info" style="min-width:1.5rem;">{{ loop.index }}.</div>
+          <p class="small mb-0">{{ rec }}</p>
+        </div>
+        {% if not loop.last %}<hr style="border-color:#2d3748;margin:.5rem 0;">{% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <p class="text-center text-secondary small mt-2">
+    <a href="/">Analyse another player</a> &nbsp;&middot;&nbsp; Data from <a href="https://lichess.org" target="_blank" rel="noopener">Lichess</a> (public, Creative Commons)
+  </p>
+
+</div>
+</body>
+</html>

@@ -75,6 +75,30 @@ docker run -e LICHESS_USERNAME=yourname ghcr.io/you/chess-insight
 
 ---
 
+## Phase 3.5 — Multi-Platform & Custom Input (Future Web Features)
+
+### 3.5.1 Chess.com Support
+**Why:** Chess.com is the largest chess platform — many users are there, not Lichess.
+
+**How:**
+- New `chess_analyzer/fetcher_chesscom.py` using Chess.com public API:
+  `GET https://api.chess.com/pub/player/{username}/games/{YYYY}/{MM}` (returns JSON with `pgn` field)
+- PGN format is compatible with `python-chess` — parser and analyzer unchanged
+- Add "Platform" dropdown to the web form (Lichess / Chess.com)
+- **Caveat:** Chess.com PGNs don't include `[%eval]` annotations, so blunder detection requires Stockfish
+
+### 3.5.2 Custom PGN Upload / Paste
+**Why:** Some players export games from other platforms or have tournament PGN files.
+
+**How:**
+- Add a second tab on the web form: "Paste PGN" (textarea) + "Upload .pgn file" (file input)
+- File input reads the file client-side (FileReader API) and populates the textarea
+- In `app.py`: detect username-based vs PGN-based request; for PGN, skip fetch step
+- Username field still needed to identify which player in the PGN to analyse
+- Split PGN into blocks using existing `_split_pgn_blocks()` from `fetcher.py`
+
+---
+
 ## Phase 4 — Advanced Analysis Features
 
 ### 4.1 Tactical Pattern Classification (with Stockfish)
@@ -102,13 +126,14 @@ After identifying a blunder with Stockfish, classify *why* it was a blunder:
 
 ## Immediate Next Steps (for next session)
 
-1. **Download Stockfish** from https://stockfishchess.org/download/
-   - Windows: download the `.exe`, note the path
+1. **Deploy web app to Render.com** (Phase 3.2 — DONE in code, needs hosting setup)
+   - Push to GitHub, connect repo to Render.com, deploy
+   - Share URL with others
+
+2. **Download Stockfish** when ready for full eval coverage
+   - Windows: download from https://stockfishchess.org/download/
    - Add path to `.env` as `STOCKFISH_PATH=C:/path/to/stockfish.exe`
-
-2. **Run Stockfish integration first** — this unlocks full analysis for all 50+ games
-
-3. Then decide: CLI-only package OR web app first?
+   - Unlocks blunder detection for 100% of games (currently ~60%)
 
 ---
 
