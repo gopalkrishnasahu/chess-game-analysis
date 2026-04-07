@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Chess Game Analyser{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Design tokens ───────────────────────────────────── */
+    :root {
+      --bg:            #0b0d11;
+      --surface:       #131720;
+      --surface-2:     #1a2030;
+      --surface-3:     #1e2638;
+      --green:         #769656;
+      --green-light:   #8fb866;
+      --green-glow:    rgba(118, 150, 86, 0.16);
+      --gold:          #c8a84b;
+      --gold-light:    #e0c068;
+      --text:          #eef0f4;
+      --text-muted:    #7d8fa8;
+      --text-dim:      #4a5568;
+      --border:        rgba(255,255,255,0.07);
+      --border-green:  rgba(118,150,86,0.28);
+      --red:           #e05a5a;
+      --red-dim:       rgba(224,90,90,0.15);
+      --yellow:        #d4a840;
+      --yellow-dim:    rgba(212,168,64,0.15);
+      --radius:        12px;
+      --radius-sm:     8px;
+    }
+
+    /* ── Base ────────────────────────────────────────────── */
+    body {
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      background-color: var(--bg);
+      background-image: repeating-conic-gradient(
+        rgba(255,255,255,0.022) 0% 25%, transparent 0% 50%
+      );
+      background-size: 52px 52px;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Typography ──────────────────────────────────────── */
+    .font-display { font-family: 'Playfair Display', serif; }
+    h1,h2,h3 { font-family: 'Playfair Display', serif; font-weight: 700; }
+    a { color: var(--green-light); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Navbar ──────────────────────────────────────────── */
+    .navbar {
+      background: rgba(13,15,20,0.9);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-green);
+      padding: 0.8rem 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .navbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: 'Playfair Display', serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .navbar-brand .piece { font-size: 1.35rem; filter: drop-shadow(0 0 6px var(--green)); }
+    .navbar-brand .accent { color: var(--green-light); }
+    .navbar-action {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      border: 1px solid var(--border-green);
+      border-radius: 6px;
+      padding: 0.3rem 0.75rem;
+      text-decoration: none;
+      transition: all 0.18s;
+      white-space: nowrap;
+    }
+    .navbar-action:hover {
+      color: var(--text);
+      background: var(--green-glow);
+      border-color: var(--green);
+      text-decoration: none;
+    }
+
+    /* ── Card ────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border-green);
+      border-radius: var(--radius);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--green), var(--gold), var(--green));
+    }
+    .card-body { padding: 1.5rem; }
+    .card-title {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    /* ── Button ──────────────────────────────────────────── */
+    .btn {
+      display: inline-block;
+      padding: 0.72rem 1.4rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s;
+      text-decoration: none;
+      text-align: center;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #769656 0%, #5a7a40 100%);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(118,150,86,0.3), inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #86a848 0%, #6a8f4a 100%);
+      box-shadow: 0 6px 18px rgba(118,150,86,0.4);
+      transform: translateY(-1px);
+      text-decoration: none;
+      color: #fff;
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+    .btn-full { width: 100%; }
+
+    /* ── Form elements ───────────────────────────────────── */
+    .form-label {
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.42rem;
+    }
+    .form-control {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.68rem 0.9rem;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.92rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      -webkit-appearance: none;
+    }
+    .form-control::placeholder { color: var(--text-dim); }
+    .form-control:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(118,150,86,0.18);
+    }
+    .form-control option { background: var(--surface-2); }
+
+    /* ── Badge ───────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.2em 0.6em;
+      border-radius: 4px;
+    }
+    .badge-critical { background: var(--red-dim); color: var(--red); border: 1px solid rgba(224,90,90,0.25); }
+    .badge-moderate  { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(212,168,64,0.25); }
+    .badge-minor     { background: rgba(118,150,86,0.12); color: var(--green-light); border: 1px solid rgba(118,150,86,0.25); }
+
+    /* ── Divider ─────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-green), transparent);
+      margin: 1.2rem 0;
+    }
+
+    /* ── Centered layout (for index / loading / error) ───── */
+    .page-centered {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem 1rem;
+    }
+    .page-centered .inner { width: 100%; max-width: 420px; }
+    @media (max-width: 480px) {
+      .page-centered .inner { max-width: 100%; }
+      .page-centered { align-items: flex-start; padding-top: 2rem; }
+    }
+
+    /* ── Glow wrapper ────────────────────────────────────── */
+    .glow-wrap { position: relative; }
+    .glow-wrap::before {
+      content: '';
+      position: absolute;
+      inset: -40px;
+      background: radial-gradient(ellipse at center, var(--green-glow), transparent 68%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .glow-wrap > * { position: relative; z-index: 1; }
+
+    /* ── Progress bar ────────────────────────────────────── */
+    .progress-track {
+      height: 5px;
+      background: var(--surface-3);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--green), var(--gold));
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
+    /* ── Spinner ─────────────────────────────────────────── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--surface-3);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* ── Kill browser table defaults ────────────────────── */
+    table { border-collapse: collapse; background: transparent; }
+    thead, tbody, tr, th, td { background: transparent !important; }
+
+    /* ── Utility ─────────────────────────────────────────── */
+    .text-green  { color: var(--green-light) !important; }
+    .text-gold   { color: var(--gold-light) !important; }
+    .text-red    { color: var(--red) !important; }
+    .text-yellow { color: var(--yellow) !important; }
+    .text-muted  { color: var(--text-muted) !important; }
+    .text-center { text-align: center; }
+    .text-right  { text-align: right; }
+    .small       { font-size: 0.82rem; }
+    .mt-1 { margin-top: 0.5rem; }
+    .mt-2 { margin-top: 1rem; }
+    .mt-3 { margin-top: 1.5rem; }
+    .mb-1 { margin-bottom: 0.5rem; }
+    .mb-2 { margin-bottom: 1rem; }
+    .mb-3 { margin-bottom: 1.5rem; }
+  </style>
+  {% block extra_styles %}{% endblock %}
+</head>
+<body>
+{% block body %}{% endblock %}
+</body>
+</html>
