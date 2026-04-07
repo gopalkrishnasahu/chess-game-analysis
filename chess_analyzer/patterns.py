@@ -445,7 +445,7 @@ def _blunder_move_range_pattern(
         category="blunder_spike_range",
         description=(
             f"{worst_count} blunders ({int(worst_pct * 100)}% of all your blunders) "
-            f"cluster at moves {lo}-{hi_label} — a {_phase_hint_for_range(lo)} transition"
+            f"cluster at moves {lo}-{hi_label} ({_phase_hint_for_range(lo)} transition)"
         ),
         frequency=worst_count,
         severity="critical" if worst_pct >= 0.45 else "moderate",
@@ -497,7 +497,7 @@ def _range_recommendation(lo: int, hi: int) -> str:
             "and solve tactical puzzles from complex middlegame positions."
         )
     return (
-        f"Your blunders concentrate at moves {lo}-{hi_label} — deep endgame errors. "
+        f"Your blunders concentrate at moves {lo}-{hi_label}: deep endgame errors. "
         "Study rook endgames and pawn endgame technique on Lichess Endgame Practice."
     )
 
