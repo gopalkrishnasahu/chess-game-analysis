@@ -427,7 +427,13 @@
   </div><!-- /grid -->
 
   <p class="text-center text-muted small" style="margin-top:2rem;">
-    Data from <a href="https://lichess.org" target="_blank" rel="noopener">Lichess</a> (Creative Commons)
+    {% if source == "chesscom" %}
+      Data from <a href="https://www.chess.com" target="_blank" rel="noopener">Chess.com</a>
+    {% elif source == "pgn" %}
+      Data from uploaded PGN
+    {% else %}
+      Data from <a href="https://lichess.org" target="_blank" rel="noopener">Lichess</a> (Creative Commons)
+    {% endif %}
     &nbsp;&middot;&nbsp; <a href="/">Analyse another player</a>
   </p>
 

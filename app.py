@@ -145,7 +145,7 @@ def stream():
             report = detect_patterns(report, game_records)
 
             token = uuid.uuid4().hex[:10]
-            _cache[token] = (report, time.time())
+            _cache[token] = (report, time.time(), source)
             _evict_old()
 
             yield f"event: done\ndata: {token}\n\n"
@@ -171,8 +171,8 @@ def report(token: str):
             msg="Report not found or expired (reports are kept for 30 minutes). "
                 "Please run the analysis again.",
         ), 404
-    r, _ = entry
-    return render_template("report.html", r=r)
+    r, _, source = entry
+    return render_template("report.html", r=r, source=source)
 
 
 @app.route("/error")
@@ -202,7 +202,7 @@ def _clamp(value, lo: int, hi: int) -> int:
 def _evict_old() -> None:
     cutoff = time.time() - _CACHE_TTL
     for k in list(_cache):
-        if _cache[k][1] < cutoff:
+        if _cache[k][1] < cutoff:  # index 1 is timestamp in (report, ts, source)
             del _cache[k]
 
 
