@@ -5,14 +5,13 @@ No authentication required.
 Chess.com PGNs do NOT include [%eval] annotations, so blunder detection
 will show 0 eval-based stats. Phase/opening/W-D-L stats still work.
 """
-import re
-import time
-from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
 CHESSCOM_BASE = "https://api.chess.com/pub"
 HEADERS = {"User-Agent": "chess-game-analyser/1.0"}
+_PARALLEL_WORKERS = 4   # fetch up to 4 monthly archives at once
 
 
 def fetch_games_chesscom(
@@ -21,62 +20,81 @@ def fetch_games_chesscom(
     perf_type: str = "rapid",
 ) -> list[str]:
     """
-    Returns a list of raw PGN strings (newest first) from Chess.com.
-    perf_type must be one of: rapid, blitz, bullet, classical, daily.
+    Returns a list of raw PGN strings (newest first, up to max_games) from Chess.com.
+    perf_type: rapid | blitz | bullet | classical | daily
     """
     time_class = _perf_to_time_class(perf_type)
 
-    # Verify user exists
+    # Get list of monthly archives (API returns oldest-first; we want newest-first)
     try:
-        resp = requests.get(f"{CHESSCOM_BASE}/player/{username}", headers=HEADERS, timeout=15)
-        if resp.status_code == 404:
+        archives_resp = requests.get(
+            f"{CHESSCOM_BASE}/player/{username}/games/archives",
+            headers=HEADERS, timeout=15,
+        )
+        if archives_resp.status_code == 404:
             raise ValueError(f"Chess.com user '{username}' not found.")
-        resp.raise_for_status()
+        archives_resp.raise_for_status()
     except requests.exceptions.HTTPError as e:
-        raise ValueError(f"Chess.com user '{username}' not found.") from e
+        status = e.response.status_code if e.response is not None else "?"
+        if status == 404:
+            raise ValueError(f"Chess.com user '{username}' not found.") from e
+        raise
 
-    # Get list of available monthly archives (newest first)
-    archives_resp = requests.get(
-        f"{CHESSCOM_BASE}/player/{username}/games/archives",
-        headers=HEADERS, timeout=15,
-    )
-    archives_resp.raise_for_status()
     archives = list(reversed(archives_resp.json().get("archives", [])))
+    if not archives:
+        return []
 
     pgn_blocks: list[str] = []
 
-    for archive_url in archives:
+    # Process months in batches, newest first, stop when we have enough
+    for batch_start in range(0, len(archives), _PARALLEL_WORKERS):
         if len(pgn_blocks) >= max_games:
             break
 
-        try:
-            month_resp = requests.get(archive_url, headers=HEADERS, timeout=30)
-            month_resp.raise_for_status()
-        except requests.exceptions.RequestException:
-            continue
+        batch = archives[batch_start: batch_start + _PARALLEL_WORKERS]
 
-        games = month_resp.json().get("games", [])
-        # Newest games last in each month — reverse to get newest first
-        for game in reversed(games):
+        # Fetch this batch of months in parallel
+        month_games: dict[str, list[dict]] = {}
+        with ThreadPoolExecutor(max_workers=_PARALLEL_WORKERS) as pool:
+            future_to_url = {
+                pool.submit(_fetch_month, url): url for url in batch
+            }
+            for future in as_completed(future_to_url):
+                url = future_to_url[future]
+                try:
+                    month_games[url] = future.result()
+                except Exception:
+                    month_games[url] = []
+
+        # Collect games in order (newest month first within batch)
+        for url in batch:
             if len(pgn_blocks) >= max_games:
                 break
-            if game.get("time_class") != time_class:
-                continue
-            pgn = game.get("pgn", "").strip()
-            if pgn:
-                pgn_blocks.append(pgn)
-
-        time.sleep(0.5)  # be polite to Chess.com API
+            games = month_games.get(url, [])
+            # Chess.com returns games oldest-first within a month — reverse for newest first
+            for game in reversed(games):
+                if len(pgn_blocks) >= max_games:
+                    break
+                if game.get("time_class") != time_class:
+                    continue
+                pgn = game.get("pgn", "").strip()
+                if pgn:
+                    pgn_blocks.append(pgn)
 
     return pgn_blocks
 
 
+def _fetch_month(url: str) -> list[dict]:
+    resp = requests.get(url, headers=HEADERS, timeout=30)
+    resp.raise_for_status()
+    return resp.json().get("games", [])
+
+
 def _perf_to_time_class(perf_type: str) -> str:
-    mapping = {
+    return {
         "rapid": "rapid",
         "blitz": "blitz",
         "bullet": "bullet",
         "classical": "daily",
         "daily": "daily",
-    }
-    return mapping.get(perf_type.lower(), "rapid")
+    }.get(perf_type.lower(), "rapid")
