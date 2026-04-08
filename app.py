@@ -3,8 +3,10 @@ Flask web application for chess game analysis.
 Run locally:  flask run  or  python app.py
 Production:   gunicorn --workers 1 --threads 4 --timeout 120 app:app
 """
+import json
 import time
 import uuid
+from pathlib import Path
 
 from flask import (
     Flask,
@@ -17,6 +19,10 @@ from flask import (
 )
 
 app = Flask(__name__)
+
+# ECO code -> opening name lookup (sourced from lichess-org/chess-openings, CC0)
+_ECO_FILE = Path(__file__).parent / "chess_analyzer" / "eco_names.json"
+ECO_NAMES: dict[str, str] = json.loads(_ECO_FILE.read_text(encoding="utf-8"))
 
 # In-memory report cache: token -> (AnalysisReport, created_at)
 _cache: dict[str, tuple] = {}
@@ -172,7 +178,7 @@ def report(token: str):
                 "Please run the analysis again.",
         ), 404
     r, _, source = entry
-    return render_template("report.html", r=r, source=source)
+    return render_template("report.html", r=r, source=source, eco_names=ECO_NAMES)
 
 
 @app.route("/error")

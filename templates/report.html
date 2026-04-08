@@ -348,8 +348,12 @@
               <tbody>
                 {% for s in qualifying.items | sort(attribute='games_played', reverse=True) %}
                 {% set wp = (s.win_rate * 100) | int %}
+                {% set display_name = eco_names.get(s.family, s.family) %}
                 <tr>
-                  <td>{{ s.family[:36] }}</td>
+                  <td>
+                    <span title="{{ display_name }}">{{ display_name[:32] }}{% if display_name|length > 32 %}…{% endif %}</span>
+                    {% if s.family != display_name %}<br><span style="font-size:.65rem;color:var(--text-dim);">{{ s.family }}</span>{% endif %}
+                  </td>
                   <td class="tc text-muted">{{ s.games_played }}</td>
                   <td class="tc text-muted">{{ s.wins }}/{{ s.draws }}/{{ s.losses }}</td>
                   <td class="tr {% if wp >= 55 %}text-green{% elif wp < 40 %}text-red{% endif %}">{{ wp }}%</td>
