@@ -30,7 +30,13 @@
             Analysing <span class="text-green">{{ username }}</span>
           </h2>
           <p class="small text-muted mb-2" style="margin-bottom:1.6rem;">
-            {{ games }} {{ perf }} games &mdash; takes about 20&ndash;40 seconds
+            {% if source == "pgn" %}
+              Uploaded PGN &mdash; takes about 20&ndash;40 seconds
+            {% elif source == "chesscom" %}
+              {{ games }} {{ perf }} Chess.com games &mdash; takes about 20&ndash;40 seconds
+            {% else %}
+              {{ games }} {{ perf }} Lichess games &mdash; takes about 20&ndash;40 seconds
+            {% endif %}
           </p>
 
           <div class="progress-track mb-2" style="margin-bottom:.6rem;">
@@ -41,7 +47,7 @@
           <div class="divider"></div>
 
           <ul class="step-list" id="steps" style="margin-top:1.2rem;text-align:left;">
-            <li id="s1"><span class="step-dot"></span>Fetching games from Lichess</li>
+            <li id="s1"><span class="step-dot"></span>{% if source == "pgn" %}Reading uploaded PGN{% elif source == "chesscom" %}Fetching games from Chess.com{% else %}Fetching games from Lichess{% endif %}</li>
             <li id="s2"><span class="step-dot"></span>Parsing PGN data</li>
             <li id="s3"><span class="step-dot"></span>Computing eval deltas</li>
             <li id="s4"><span class="step-dot"></span>Detecting patterns</li>
@@ -55,13 +61,15 @@
 </div>
 
 <script>
-  const username = {{ username | tojson }};
-  const games    = {{ games | tojson }};
-  const perf     = {{ perf | tojson }};
-  const statusEl = document.getElementById("status-text");
-  const barEl    = document.getElementById("prog-bar");
-  const stepIds  = ["s1","s2","s3","s4","s5"];
-  let stepIdx    = 0;
+  const username  = {{ username | tojson }};
+  const games     = {{ games | tojson }};
+  const perf      = {{ perf | tojson }};
+  const source    = {{ source | tojson }};
+  const pgnToken  = {{ pgn_token | tojson }};
+  const statusEl  = document.getElementById("status-text");
+  const barEl     = document.getElementById("prog-bar");
+  const stepIds   = ["s1","s2","s3","s4","s5"];
+  let stepIdx     = 0;
 
   function advanceStep() {
     if (stepIdx > 0) document.getElementById(stepIds[stepIdx-1]).className = "done";
@@ -73,7 +81,8 @@
     barEl.style.width = pct + "%";
   }
 
-  const url = `/stream?username=${encodeURIComponent(username)}&games=${encodeURIComponent(games)}&perf=${encodeURIComponent(perf)}`;
+  let url = `/stream?source=${encodeURIComponent(source)}&username=${encodeURIComponent(username)}&games=${encodeURIComponent(games)}&perf=${encodeURIComponent(perf)}`;
+  if (pgnToken) url += `&pgn_token=${encodeURIComponent(pgnToken)}`;
   const src = new EventSource(url);
 
   src.onmessage = function(e) {

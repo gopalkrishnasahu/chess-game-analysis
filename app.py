@@ -22,6 +22,9 @@ app = Flask(__name__)
 _cache: dict[str, tuple] = {}
 _CACHE_TTL = 1800  # 30 minutes
 
+# Temporary PGN store for upload flow: token -> pgn_text
+_pgn_store: dict[str, str] = {}
+
 
 # ---------------------------------------------------------------------------
 # Routes
@@ -34,46 +37,94 @@ def index():
 
 @app.route("/analyse", methods=["POST"])
 def analyse():
+    source = request.form.get("source", "lichess")  # lichess | chesscom | pgn
+
+    if source == "pgn":
+        # PGN upload / paste
+        pgn_text = request.form.get("pgn_text", "").strip()
+        if not pgn_text:
+            uploaded = request.files.get("pgn_file")
+            if uploaded and uploaded.filename:
+                pgn_text = uploaded.read().decode("utf-8", errors="replace").strip()
+        if not pgn_text:
+            return redirect(url_for("index"))
+        username = request.form.get("username_pgn", "").strip() or "Player"
+        # Stash PGN so the SSE stream can read it
+        pgn_token = uuid.uuid4().hex[:12]
+        _pgn_store[pgn_token] = pgn_text
+        return redirect(url_for("loading",
+                                source="pgn",
+                                pgn_token=pgn_token,
+                                username=username,
+                                games="",
+                                perf=""))
+
+    # Lichess or Chess.com
     username = request.form.get("username", "").strip()
     if not username:
         return redirect(url_for("index"))
     games = _clamp(request.form.get("games", 50), 10, 200)
     perf  = request.form.get("perf", "rapid")
-    return redirect(url_for("loading", username=username, games=games, perf=perf))
+    return redirect(url_for("loading",
+                            source=source,
+                            username=username,
+                            games=games,
+                            perf=perf))
 
 
 @app.route("/loading")
 def loading():
     return render_template(
         "loading.html",
+        source=request.args.get("source", "lichess"),
         username=request.args.get("username", ""),
         games=request.args.get("games", 50),
         perf=request.args.get("perf", "rapid"),
+        pgn_token=request.args.get("pgn_token", ""),
     )
 
 
 @app.route("/stream")
 def stream():
+    source   = request.args.get("source", "lichess")
     username = request.args.get("username", "").strip()
     games    = _clamp(request.args.get("games", 50), 10, 200)
     perf     = request.args.get("perf", "rapid")
+    pgn_token = request.args.get("pgn_token", "")
 
     def generate():
-        from chess_analyzer.fetcher  import fetch_games
         from chess_analyzer.parser   import parse_game
         from chess_analyzer.analyzer import compute_eval_deltas, aggregate_games
         from chess_analyzer.patterns import detect_patterns
 
         try:
-            yield _msg(f"Fetching up to {games} {perf} games for '{username}'...")
+            # ── Fetch PGN blocks ─────────────────────────────────────────────
+            if source == "pgn":
+                pgn_text = _pgn_store.pop(pgn_token, "")
+                if not pgn_text:
+                    yield _err("PGN data not found. Please paste or upload your PGN again.")
+                    return
+                from chess_analyzer.fetcher import _split_pgn_blocks
+                pgn_blocks = _split_pgn_blocks(pgn_text)
+                yield _msg(f"Reading {len(pgn_blocks)} games from uploaded PGN...")
 
-            pgn_blocks = fetch_games(username, games, perf, use_cache=False)
+            elif source == "chesscom":
+                yield _msg(f"Fetching up to {games} {perf} games for '{username}' from Chess.com...")
+                from chess_analyzer.fetcher_chesscom import fetch_games_chesscom
+                pgn_blocks = fetch_games_chesscom(username, games, perf)
+
+            else:  # lichess (default)
+                yield _msg(f"Fetching up to {games} {perf} games for '{username}' from Lichess...")
+                from chess_analyzer.fetcher import fetch_games
+                pgn_blocks = fetch_games(username, games, perf, use_cache=False)
 
             if not pgn_blocks:
-                yield _err(f"No {perf} games found for '{username}'. "
+                platform_label = {"chesscom": "Chess.com", "pgn": "the uploaded PGN"}.get(source, "Lichess")
+                yield _err(f"No {perf} games found in {platform_label}. "
                            "Check the username or try a different time control.")
                 return
 
+            # ── Parse ────────────────────────────────────────────────────────
             yield _msg(f"Parsing {len(pgn_blocks)} games...")
             game_records = []
             for pgn in pgn_blocks:
@@ -85,6 +136,7 @@ def stream():
                 yield _err("Could not parse any games. The PGN data may be malformed.")
                 return
 
+            # ── Analyse ──────────────────────────────────────────────────────
             yield _msg("Computing move evaluations...")
             game_records = [compute_eval_deltas(g) for g in game_records]
 
@@ -133,12 +185,10 @@ def error():
 # ---------------------------------------------------------------------------
 
 def _msg(text: str) -> str:
-    """Format a plain SSE data event."""
     return f"data: {text}\n\n"
 
 
 def _err(text: str) -> str:
-    """Format a named SSE error event."""
     return f"event: error\ndata: {text}\n\n"
 
 
@@ -150,7 +200,6 @@ def _clamp(value, lo: int, hi: int) -> int:
 
 
 def _evict_old() -> None:
-    """Remove cache entries older than _CACHE_TTL seconds."""
     cutoff = time.time() - _CACHE_TTL
     for k in list(_cache):
         if _cache[k][1] < cutoff:

@@ -4,49 +4,120 @@
 
 {% block extra_styles %}
 <style>
-  .brand-icon { font-size: 3rem; filter: drop-shadow(0 0 14px rgba(118,150,86,0.55)); line-height: 1; }
+  .brand-icon  { font-size: 3rem; filter: drop-shadow(0 0 14px rgba(118,150,86,0.55)); line-height: 1; }
   .brand-title { font-size: 2rem; color: #fff; letter-spacing: -0.01em; margin: 0.5rem 0 0.3rem; }
   .brand-title span { color: var(--green-light); }
-  .brand-sub { font-size: 0.78rem; color: var(--text-muted); letter-spacing: 0.05em; }
+  .brand-sub   { font-size: 0.78rem; color: var(--text-muted); letter-spacing: 0.05em; }
+
+  /* ── Tab switcher ─────────────────────────────────────── */
+  .tab-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+    margin-bottom: 1.3rem;
+  }
+  .tab-btn {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: .42rem .5rem;
+    font-family: 'Inter', sans-serif;
+    font-size: .75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+  }
+  .tab-btn.active {
+    background: var(--surface-3);
+    color: var(--text);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+  }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  /* ── Source panels ────────────────────────────────────── */
+  .source-panel { display: none; }
+  .source-panel.active { display: block; }
+
+  /* ── Form helpers ─────────────────────────────────────── */
   .row-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
   .field { margin-bottom: 1rem; }
-  .note { font-size: 0.74rem; color: var(--text-muted); line-height: 1.7; }
+  .note  { font-size: 0.74rem; color: var(--text-muted); line-height: 1.7; }
+
+  /* ── PGN textarea ─────────────────────────────────────── */
+  .pgn-area {
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+    font-family: monospace;
+    font-size: .78rem;
+    line-height: 1.5;
+  }
+  .or-divider {
+    display: flex; align-items: center; gap: .6rem;
+    font-size: .7rem; color: var(--text-dim);
+    margin: .65rem 0;
+  }
+  .or-divider::before, .or-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* ── Warning notice ───────────────────────────────────── */
+  .notice {
+    font-size: .73rem; color: var(--yellow);
+    background: var(--yellow-dim); border: 1px solid rgba(212,168,64,.22);
+    border-radius: 6px; padding: .45rem .7rem; margin-bottom: .9rem;
+    line-height: 1.55;
+  }
 </style>
 {% endblock %}
 
 {% block body %}
 <div class="page-centered">
-  <div class="inner">
+  <div class="inner" style="max-width:440px;">
     <div class="glow-wrap">
       <div class="card">
         <div class="card-body" style="padding: 2.4rem 2rem 2rem;">
 
-          <div class="text-center mb-3" style="margin-bottom:1.8rem;">
+          <div class="text-center mb-3" style="margin-bottom:1.6rem;">
             <div class="brand-icon">&#9822;</div>
             <h1 class="brand-title">Chess <span>Analyser</span></h1>
             <p class="brand-sub">Uncover your patterns &middot; strengths &middot; weaknesses</p>
           </div>
 
-          <div class="divider"></div>
+          <div class="divider" style="margin-bottom:1.3rem;"></div>
 
-          <form action="/analyse" method="post">
+          <!-- Tab bar -->
+          <div class="tab-bar" role="tablist">
+            <button class="tab-btn active" onclick="switchTab('lichess')" id="tab-lichess">&#9822; Lichess</button>
+            <button class="tab-btn" onclick="switchTab('chesscom')" id="tab-chesscom">&#9819; Chess.com</button>
+            <button class="tab-btn" onclick="switchTab('pgn')" id="tab-pgn">&#128196; PGN Upload</button>
+          </div>
+
+          <!-- ── Lichess panel ─────────────────────────────── -->
+          <form action="/analyse" method="post" id="form-lichess" class="source-panel active">
+            <input type="hidden" name="source" value="lichess">
+
             <div class="field">
-              <label class="form-label" for="username">Lichess Username</label>
-              <input
-                class="form-control" type="text" id="username" name="username"
-                placeholder="e.g. magnus" required autofocus
-                autocomplete="off" spellcheck="false"
-              >
+              <label class="form-label" for="username-lichess">Lichess Username</label>
+              <input class="form-control" type="text" id="username-lichess" name="username"
+                     placeholder="e.g. magnus" autocomplete="off" spellcheck="false">
             </div>
 
-            <div class="row-fields" style="margin-bottom:1.6rem;">
+            <div class="row-fields" style="margin-bottom:1.4rem;">
               <div>
-                <label class="form-label" for="games">Games to fetch</label>
-                <input class="form-control" type="number" id="games" name="games" value="50" min="10" max="200">
+                <label class="form-label" for="games-lichess">Games to fetch</label>
+                <input class="form-control" type="number" id="games-lichess" name="games"
+                       value="50" min="10" max="200">
               </div>
               <div>
-                <label class="form-label" for="perf">Time control</label>
-                <select class="form-control" id="perf" name="perf">
+                <label class="form-label" for="perf-lichess">Time control</label>
+                <select class="form-control" id="perf-lichess" name="perf">
                   <option value="rapid" selected>Rapid</option>
                   <option value="blitz">Blitz</option>
                   <option value="bullet">Bullet</option>
@@ -60,8 +131,75 @@
             </button>
           </form>
 
+          <!-- ── Chess.com panel ──────────────────────────── -->
+          <form action="/analyse" method="post" id="form-chesscom" class="source-panel">
+            <input type="hidden" name="source" value="chesscom">
+
+            <div class="notice">
+              Chess.com games don&#39;t include engine evaluations, so blunder detection
+              is limited. Opening stats, W/D/L, and phase breakdown still work.
+            </div>
+
+            <div class="field">
+              <label class="form-label" for="username-chesscom">Chess.com Username</label>
+              <input class="form-control" type="text" id="username-chesscom" name="username"
+                     placeholder="e.g. hikaru" autocomplete="off" spellcheck="false">
+            </div>
+
+            <div class="row-fields" style="margin-bottom:1.4rem;">
+              <div>
+                <label class="form-label" for="games-chesscom">Games to fetch</label>
+                <input class="form-control" type="number" id="games-chesscom" name="games"
+                       value="50" min="10" max="200">
+              </div>
+              <div>
+                <label class="form-label" for="perf-chesscom">Time control</label>
+                <select class="form-control" id="perf-chesscom" name="perf">
+                  <option value="rapid" selected>Rapid</option>
+                  <option value="blitz">Blitz</option>
+                  <option value="bullet">Bullet</option>
+                  <option value="daily">Daily (Classical)</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-full" style="font-size:1rem;padding:.85rem;">
+              Analyse my games &rarr;
+            </button>
+          </form>
+
+          <!-- ── PGN Upload panel ──────────────────────────── -->
+          <form action="/analyse" method="post" enctype="multipart/form-data"
+                id="form-pgn" class="source-panel">
+            <input type="hidden" name="source" value="pgn">
+
+            <div class="field">
+              <label class="form-label" for="username-pgn">Your name in the PGN</label>
+              <input class="form-control" type="text" id="username-pgn" name="username_pgn"
+                     placeholder="Must match White or Black name" autocomplete="off" spellcheck="false">
+            </div>
+
+            <div class="field">
+              <label class="form-label" for="pgn-file">Upload .pgn file</label>
+              <input class="form-control" type="file" id="pgn-file" name="pgn_file"
+                     accept=".pgn,text/plain" onchange="loadFile(this)">
+            </div>
+
+            <div class="or-divider">or paste PGN below</div>
+
+            <div class="field" style="margin-bottom:1.4rem;">
+              <label class="form-label" for="pgn-text">PGN text</label>
+              <textarea class="form-control pgn-area" id="pgn-text" name="pgn_text"
+                        placeholder="[Event &quot;...&quot;]&#10;[White &quot;...&quot;]&#10;..."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-full" style="font-size:1rem;padding:.85rem;">
+              Analyse PGN &rarr;
+            </button>
+          </form>
+
           <p class="note text-center mt-2" style="margin-top:1.3rem;">
-            Uses public <a href="https://lichess.org" target="_blank" rel="noopener">Lichess</a> data &mdash; no account needed.<br>
+            Uses public game data &mdash; no account needed.<br>
             Analysis takes ~20&ndash;40 seconds for 50 games.
           </p>
 
@@ -70,4 +208,21 @@
     </div>
   </div>
 </div>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.source-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    document.getElementById('form-' + name).classList.add('active');
+  }
+
+  function loadFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => { document.getElementById('pgn-text').value = e.target.result; };
+    reader.readAsText(file);
+  }
+</script>
 {% endblock %}
