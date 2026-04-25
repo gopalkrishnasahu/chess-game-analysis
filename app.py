@@ -142,7 +142,9 @@ def stream():
                 yield _err("Could not parse any games. The PGN data may be malformed.")
                 return
 
-            # ── Eval enrichment (Stockfish local > Lichess cloud > skip) ────────
+            # ── Eval enrichment (Stockfish local > Lichess cloud for PGN > skip) ──
+            # Chess.com games: cloud eval skipped — Lichess DB covers Lichess positions,
+            # not Chess.com sidelines, so coverage is ~0% and adds 90+ seconds of wait.
             from chess_analyzer.stockfish_eval import get_stockfish_path, enrich_games_with_stockfish
             from chess_analyzer.cloud_eval import enrich_games_with_cloud_eval
             needs_eval = sum(1 for g in game_records if not g.has_evals)
@@ -153,13 +155,15 @@ def stream():
                         f"(depth 12, ~{needs_eval * 3}s)..."
                     )
                     game_records = enrich_games_with_stockfish(game_records, pgn_blocks, depth=12)
-                elif source in ("chesscom", "pgn"):
+                elif source == "pgn":
+                    # PGN uploads may come from Lichess — cloud eval is worthwhile
                     yield _msg(
                         f"Fetching cloud evaluations for {needs_eval} games "
                         f"via Lichess (~{needs_eval * 4}s)..."
                     )
                     for progress_msg in enrich_games_with_cloud_eval(game_records):
                         yield _msg(progress_msg)
+                # else: chesscom — skip cloud eval, show no-eval report immediately
 
             # ── Analyse ──────────────────────────────────────────────────────
             yield _msg("Computing move evaluations...")

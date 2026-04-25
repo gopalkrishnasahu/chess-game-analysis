@@ -155,24 +155,30 @@ def _endgame_conversion_failures(games: list[GameRecord]) -> list[PatternFinding
 
 
 def _opening_struggles(report: AnalysisReport) -> list[PatternFinding]:
+    has_evals = report.games_with_evals > 0
     patterns = []
     for family, s in report.opening_stats.items():
         if s.games_played < MIN_GAMES_FOR_OPENING:
             continue
-        if not (s.win_rate < 0.40 and s.avg_blunders >= 1.8):
-            continue
+        if has_evals:
+            # With eval: require poor win rate AND elevated blunders for confidence
+            if not (s.win_rate < 0.40 and s.avg_blunders >= 1.8):
+                continue
+            blunder_suffix = f", {s.avg_blunders:.1f} blunders/game"
+        else:
+            # Without eval: win rate alone is the signal — use a slightly stricter threshold
+            if not (s.win_rate < 0.38):
+                continue
+            blunder_suffix = ""
         desc = (
             f"{family}: {s.wins}W-{s.draws}D-{s.losses}L "
-            f"({int(s.win_rate*100)}% win rate, {s.avg_blunders:.1f} blunders/game)"
+            f"({int(s.win_rate*100)}% win rate{blunder_suffix})"
         )
         themes = _lookup_opening_themes(family)
-        if themes:
-            tactic_hint = (
-                f" In particular, study tactical motifs common to this opening: "
-                f"{', '.join(themes[:2])}."
-            )
-        else:
-            tactic_hint = ""
+        tactic_hint = (
+            f" In particular, study tactical motifs common to this opening: "
+            f"{', '.join(themes[:2])}."
+        ) if themes else ""
         patterns.append(PatternFinding(
             category="opening_struggle",
             description=desc,
@@ -260,23 +266,32 @@ def _worst_phase_pattern(report: AnalysisReport) -> list[PatternFinding]:
 # ----------------------------------------------
 
 def _opening_strengths(report: AnalysisReport) -> list[PatternFinding]:
+    has_evals = report.games_with_evals > 0
     patterns = []
     for family, s in report.opening_stats.items():
         if s.games_played < MIN_GAMES_FOR_OPENING:
             continue
-        if s.win_rate >= 0.58 and s.avg_blunders <= 1.2:
-            desc = (
-                f"{family}: {s.wins}W-{s.draws}D-{s.losses}L "
-                f"({int(s.win_rate*100)}% win rate, {s.avg_blunders:.1f} blunders/game)"
-            )
-            patterns.append(PatternFinding(
-                category="opening_strength",
-                description=desc,
-                frequency=s.games_played,
-                severity="minor",
-                example_game_ids=[],
-                recommendation=f"Keep playing the {family} -- it's working well for you.",
-            ))
+        if has_evals:
+            if not (s.win_rate >= 0.58 and s.avg_blunders <= 1.2):
+                continue
+            blunder_suffix = f", {s.avg_blunders:.1f} blunders/game"
+        else:
+            # Without eval: high win rate alone is a genuine strength signal
+            if not (s.win_rate >= 0.60):
+                continue
+            blunder_suffix = ""
+        desc = (
+            f"{family}: {s.wins}W-{s.draws}D-{s.losses}L "
+            f"({int(s.win_rate*100)}% win rate{blunder_suffix})"
+        )
+        patterns.append(PatternFinding(
+            category="opening_strength",
+            description=desc,
+            frequency=s.games_played,
+            severity="minor",
+            example_game_ids=[],
+            recommendation=f"Keep playing the {family} — it's working well for you.",
+        ))
     return patterns
 
 
@@ -338,25 +353,42 @@ def _build_recommendations(report: AnalysisReport, games: list[GameRecord]) -> l
             "and verify your piece isn't hanging after you move."
         )
 
-    if report.games_with_evals < report.games_analyzed * 0.4:
+    # Priority 4: color-balance insight (works without eval)
+    white_games = [g for g in games if g.player_color == chess.WHITE]
+    black_games = [g for g in games if g.player_color == chess.BLACK]
+    if len(white_games) >= 4 and len(black_games) >= 4:
+        white_wr = sum(1 for g in white_games if g.player_won) / len(white_games)
+        black_wr = sum(1 for g in black_games if g.player_won) / len(black_games)
+        diff = abs(white_wr - black_wr)
+        if diff >= 0.20:
+            weaker = "Black" if black_wr < white_wr else "White"
+            stronger = "White" if weaker == "Black" else "Black"
+            weaker_wr = min(white_wr, black_wr)
+            stronger_wr = max(white_wr, black_wr)
+            recs.append(
+                f"You win {int(stronger_wr*100)}% as {stronger} but only {int(weaker_wr*100)}% as {weaker}. "
+                f"Strengthen your {weaker} repertoire — study a solid response to your opponent's most common first move."
+            )
+
+    # Priority 5: no-eval note (informational, kept last so it doesn't crowd out actionable advice)
+    if report.games_with_evals == 0:
         if report.source == "chesscom":
             recs.append(
-                f"Only {report.games_with_evals}/{report.games_analyzed} games had eval data. "
-                "Chess.com doesn't include engine evaluations in exported games. "
-                "To unlock blunder/mistake stats, analyse the same games on Lichess — "
-                "import your PGN there and request computer analysis."
+                "Chess.com doesn't export engine evaluations, so blunder/mistake detection is unavailable. "
+                "For full analysis, export your games as PGN from Chess.com and import them into Lichess "
+                "(Analysis Board → Request computer analysis), then re-run here with the annotated PGN."
             )
         elif report.source == "pgn":
             recs.append(
-                f"Only {report.games_with_evals}/{report.games_analyzed} games had eval data. "
-                "Your PGN doesn't include engine evaluations. "
-                "Re-export from Lichess with 'Include analysis' enabled, or run the games through a local Stockfish engine."
+                "This PGN has no engine evaluations. Re-export from Lichess with 'Include analysis' enabled, "
+                "or use a local Stockfish engine to annotate the file before uploading."
             )
-        else:
-            recs.append(
-                f"Only {report.games_with_evals}/{report.games_analyzed} games had eval data. "
-                "After games, request computer analysis on Lichess to get more eval data for future runs."
-            )
+    elif report.games_with_evals < report.games_analyzed * 0.4:
+        recs.append(
+            f"Only {report.games_with_evals}/{report.games_analyzed} games had eval data — "
+            "blunder stats may not be fully representative. "
+            "After games on Lichess, request computer analysis to improve coverage."
+        )
 
     return recs[:8]  # cap at 8 recommendations
 

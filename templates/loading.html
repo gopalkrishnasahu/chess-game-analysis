@@ -53,7 +53,7 @@
           <ul class="step-list" id="steps" style="margin-top:1.2rem;text-align:left;">
             <li id="s1"><span class="step-dot"></span>{% if source == "pgn" %}Reading uploaded PGN{% elif source == "chesscom" %}Fetching games from Chess.com{% else %}Fetching games from Lichess{% endif %}</li>
             <li id="s2"><span class="step-dot"></span>Parsing PGN data</li>
-            {% if source in ("chesscom", "pgn") %}
+            {% if source == "pgn" %}
             <li id="s3"><span class="step-dot"></span>Fetching eval data</li>
             <li id="s4"><span class="step-dot"></span>Computing move errors</li>
             <li id="s5"><span class="step-dot"></span>Detecting patterns &amp; building report</li>
@@ -88,8 +88,8 @@
   const numGames = parseInt(games) || 20;
   function calcEstimate() {
     if (source === "lichess") return Math.round(numGames * 0.6 + 10);
-    if (source === "chesscom") return Math.round(numGames * 6 + 20);
-    if (source === "pgn")      return Math.round(numGames * 5 + 15);
+    if (source === "chesscom") return Math.round(numGames * 0.5 + 8);   // no cloud eval
+    if (source === "pgn")      return Math.round(numGames * 5 + 15);    // cloud eval for PGN
     return 30;
   }
   function fmtSecs(s) {
@@ -146,11 +146,12 @@
   const STEP_TRIGGERS = [
     { key: "Fetching",            step: 1 },
     { key: "Parsing",             step: 2 },
-    { key: "cloud evaluations",   step: 3 },
-    { key: "Cloud eval:",         step: 3 },
-    { key: "Cloud eval complete", step: 3 },
-    { key: "Computing move",      step: source === "lichess" ? 3 : 4 },
-    { key: "Detecting patterns",  step: source === "lichess" ? 4 : 5 },
+    // Cloud eval only runs for PGN uploads — step 3 maps to "Fetching eval data"
+    { key: "cloud evaluations",   step: source === "pgn" ? 3 : 2 },
+    { key: "Cloud eval:",         step: source === "pgn" ? 3 : 2 },
+    { key: "Cloud eval complete", step: source === "pgn" ? 3 : 2 },
+    { key: "Computing move",      step: source === "lichess" || source === "chesscom" ? 3 : 4 },
+    { key: "Detecting patterns",  step: source === "lichess" || source === "chesscom" ? 4 : 5 },
   ];
   let activeStep = 0;
 
