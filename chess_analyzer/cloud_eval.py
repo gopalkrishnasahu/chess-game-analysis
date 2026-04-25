@@ -4,7 +4,7 @@ Lichess Cloud Eval enrichment — zero installation required.
 Uses the Lichess public cloud-eval API (free, no auth):
   GET https://lichess.org/api/cloud-eval?fen=<FEN>
 
-Positions are fetched in parallel (8 workers) to keep analysis fast.
+Positions are fetched in parallel (6 workers) to keep analysis fast.
 Coverage: ~70-80% of opening/early middlegame positions.
 """
 import time
@@ -15,15 +15,23 @@ import chess
 import requests
 
 CLOUD_EVAL_URL  = "https://lichess.org/api/cloud-eval"
-REQUEST_TIMEOUT = 3      # seconds per request — fail fast on slow responses
-MAX_WORKERS     = 8      # parallel requests to Lichess cloud eval
-MAX_MOVES       = 10     # evaluate first N full moves per game (20 plies) — keeps per-game time ~4s
+REQUEST_TIMEOUT = 6      # seconds per request — generous for Lichess cloud eval latency
+MAX_WORKERS     = 6      # parallel requests (reduced slightly to avoid rate limiting)
+MAX_MOVES       = 12     # evaluate first N full moves per game (24 plies)
 PROGRESS_EVERY  = 3      # yield a progress message every N games
+MIN_HITS        = 3      # minimum DB hits to mark a game as having eval data
 MATE_SENTINEL   = 100.0
 
 # Shared session for connection reuse
 _session = requests.Session()
-_session.headers.update({"Accept": "application/json"})
+_session.headers.update({
+    "Accept": "application/json",
+    "User-Agent": "chess-game-analyser/1.0 (open-source analysis tool)",
+})
+
+# Rate-limit guard: Lichess allows ~1 req/s per IP; we batch in parallel but
+# space out game-level calls so sustained rate stays under control.
+_INTER_GAME_SLEEP = 0.3   # seconds between games
 
 
 def enrich_games_with_cloud_eval(game_records: list):
@@ -39,13 +47,18 @@ def enrich_games_with_cloud_eval(game_records: list):
     if not needs_eval:
         return
 
+    games_enriched = 0
     for idx, (_, game) in enumerate(needs_eval):
         if idx % PROGRESS_EVERY == 0:
             yield f"Cloud eval: games {idx + 1}–{min(idx + PROGRESS_EVERY, total)}/{total}..."
 
         _eval_game_parallel(game)
+        if game.has_evals:
+            games_enriched += 1
+        if idx < total - 1:
+            time.sleep(_INTER_GAME_SLEEP)   # brief pause to respect rate limits
 
-    yield f"Cloud eval complete — eval data added to {total} games."
+    yield f"Cloud eval complete — eval data added to {games_enriched}/{total} games."
 
 
 def _eval_game_parallel(game) -> None:
@@ -87,7 +100,7 @@ def _eval_game_parallel(game) -> None:
             game.moves[move_idx].eval_after = eval_val
             hits += 1
 
-    if hits >= 6:   # enough evals to be meaningful
+    if hits >= MIN_HITS:   # enough evals to be meaningful
         game.has_evals = True
 
 
