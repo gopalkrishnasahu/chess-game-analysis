@@ -392,7 +392,9 @@
           {% for w in r.weaknesses %}
           <div class="finding {{ w.severity }}">
             <div class="finding-meta">
-              <span class="badge badge-{{ w.severity }}">{{ w.severity }}</span>
+              {% if w.severity == 'critical' %}<span class="badge badge-critical">Fix first</span>
+              {% elif w.severity == 'moderate' %}<span class="badge badge-moderate">Work on this</span>
+              {% else %}<span class="badge badge-minor">Minor</span>{% endif %}
               <span class="finding-cat">{{ w.category.replace('_', ' ') }}</span>
             </div>
             <div class="finding-desc">{{ w.description }}</div>

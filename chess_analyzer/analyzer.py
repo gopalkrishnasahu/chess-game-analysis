@@ -3,11 +3,33 @@ Core analysis engine.
 - Computes eval deltas and classifies moves as blunders/mistakes/inaccuracies.
 - Aggregates per-game data into an AnalysisReport.
 """
+import json
+import re
 import chess
 from collections import defaultdict
+from pathlib import Path
 from typing import Optional
 
 from .models import GameRecord, MoveRecord, AnalysisReport, OpeningStats, PatternFinding
+
+# ECO code normalisation: merge A02/A03 → "Bird Opening" etc. at grouping time
+_ECO_FILE   = Path(__file__).parent / "eco_names.json"
+_ECO_NAMES: dict[str, str] = {}
+_ECO_RE     = re.compile(r'^[A-E]\d{2}$')
+
+
+def _normalise_family(raw: str) -> str:
+    """If raw is a bare ECO code (e.g. 'A03'), convert to its English name so that
+    A02 and A03 both group under 'Bird Opening' rather than as separate rows."""
+    global _ECO_NAMES
+    if not _ECO_RE.match(raw):
+        return raw          # already a readable name like "Sicilian Defense"
+    if not _ECO_NAMES:
+        try:
+            _ECO_NAMES = json.loads(_ECO_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return _ECO_NAMES.get(raw, raw)
 
 # Centipawn loss thresholds (in pawns)
 INACCURACY_THRESHOLD = 0.50
@@ -136,10 +158,10 @@ def _compute_opening_stats(games: list[GameRecord]) -> dict[str, OpeningStats]:
     stats: dict[str, OpeningStats] = {}
 
     for game in games:
-        family = game.opening_family or "Unknown"
+        family = _normalise_family(game.opening_family or "Unknown")
         if family not in stats:
             stats[family] = OpeningStats(
-                family=family,
+                family=family,   # already normalised (readable name or ECO→name)
                 games_played=0,
                 wins=0,
                 draws=0,
