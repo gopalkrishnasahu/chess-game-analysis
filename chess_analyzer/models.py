@@ -109,6 +109,9 @@ class AnalysisReport:
     blunder_spike_count: int = 0
     blunder_spike_pct: float = 0.0
 
+    # data source (defaulted — set by app.py after analysis)
+    source: str = "lichess"   # "lichess" | "chesscom" | "pgn"
+
 
 @dataclass
 class GameRecord:

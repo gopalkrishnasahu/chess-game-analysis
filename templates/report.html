@@ -327,12 +327,12 @@
       <!-- Openings -->
       {% set qualifying = namespace(items=[]) %}
       {% for fam, s in r.opening_stats.items() %}
-        {% if s.games_played >= 4 %}{% set qualifying.items = qualifying.items + [s] %}{% endif %}
+        {% if s.games_played >= 3 %}{% set qualifying.items = qualifying.items + [s] %}{% endif %}
       {% endfor %}
       {% if qualifying.items %}
       <div class="card section-card">
         <div class="card-body">
-          <div class="section-label">Opening Breakdown <span>4+ games</span></div>
+          <div class="section-label">Opening Breakdown <span>3+ games</span></div>
           <div style="overflow-x:auto;">
             <table class="otable">
               <thead>

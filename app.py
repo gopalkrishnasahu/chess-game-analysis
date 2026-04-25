@@ -149,6 +149,7 @@ def stream():
             yield _msg("Detecting patterns and building report...")
             report = aggregate_games(game_records, username)
             report = detect_patterns(report, game_records)
+            report.source = source
 
             token = uuid.uuid4().hex[:10]
             _cache[token] = (report, time.time(), source)

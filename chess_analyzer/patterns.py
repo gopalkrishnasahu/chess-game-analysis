@@ -7,7 +7,7 @@ from collections import defaultdict
 
 from .models import AnalysisReport, GameRecord, PatternFinding
 
-MIN_GAMES_FOR_OPENING = 4    # minimum games per opening family to report on it
+MIN_GAMES_FOR_OPENING = 3    # minimum games per opening family to report on it
 TIME_PRESSURE_SECS    = 15   # seconds threshold for "time pressure"
 EARLY_MIDDLE_MOVES    = (15, 25)
 
@@ -339,10 +339,24 @@ def _build_recommendations(report: AnalysisReport, games: list[GameRecord]) -> l
         )
 
     if report.games_with_evals < report.games_analyzed * 0.4:
-        recs.append(
-            f"Only {report.games_with_evals}/{report.games_analyzed} games had eval data. "
-            "After games, request computer analysis on Lichess to get more eval data for future runs."
-        )
+        if report.source == "chesscom":
+            recs.append(
+                f"Only {report.games_with_evals}/{report.games_analyzed} games had eval data. "
+                "Chess.com doesn't include engine evaluations in exported games. "
+                "To unlock blunder/mistake stats, analyse the same games on Lichess — "
+                "import your PGN there and request computer analysis."
+            )
+        elif report.source == "pgn":
+            recs.append(
+                f"Only {report.games_with_evals}/{report.games_analyzed} games had eval data. "
+                "Your PGN doesn't include engine evaluations. "
+                "Re-export from Lichess with 'Include analysis' enabled, or run the games through a local Stockfish engine."
+            )
+        else:
+            recs.append(
+                f"Only {report.games_with_evals}/{report.games_analyzed} games had eval data. "
+                "After games, request computer analysis on Lichess to get more eval data for future runs."
+            )
 
     return recs[:8]  # cap at 8 recommendations
 
