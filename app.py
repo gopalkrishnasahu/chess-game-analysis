@@ -167,8 +167,8 @@ def stream():
 
             yield _msg("Detecting patterns and building report...")
             report = aggregate_games(game_records, username)
+            report.source = source          # set BEFORE detect_patterns so recommendations are platform-aware
             report = detect_patterns(report, game_records)
-            report.source = source
 
             token = uuid.uuid4().hex[:10]
             _cache[token] = (report, time.time(), source)

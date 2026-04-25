@@ -17,7 +17,7 @@ import requests
 CLOUD_EVAL_URL  = "https://lichess.org/api/cloud-eval"
 REQUEST_TIMEOUT = 3      # seconds per request — fail fast on slow responses
 MAX_WORKERS     = 8      # parallel requests to Lichess cloud eval
-MAX_MOVES       = 15     # evaluate first N full moves per game (30 plies)
+MAX_MOVES       = 10     # evaluate first N full moves per game (20 plies) — keeps per-game time ~4s
 PROGRESS_EVERY  = 3      # yield a progress message every N games
 MATE_SENTINEL   = 100.0
 

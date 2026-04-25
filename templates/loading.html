@@ -14,6 +14,15 @@
   .step-list li.active .step-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
   .step-list li.done .step-dot { background: var(--text-dim); }
   #status-text { font-size: 0.85rem; color: var(--gold-light); min-height: 1.3em; }
+  .time-row { font-size: 0.75rem; color: var(--text-dim); margin-top: .3rem; margin-bottom: 1.2rem; min-height: 1.1em; }
+  .fact-box {
+    margin-top: 1.4rem; padding: .65rem .9rem;
+    background: rgba(118,150,86,.06); border: 1px solid rgba(118,150,86,.15);
+    border-radius: 8px; font-size: .78rem; color: var(--text-muted);
+    line-height: 1.6; text-align: left; min-height: 3.2em;
+    transition: opacity 0.5s;
+  }
+  .fact-box strong { color: var(--green-light); }
 </style>
 {% endblock %}
 
@@ -29,15 +38,10 @@
           <h2 style="font-size:1.35rem;margin:.8rem 0 .3rem;">
             Analysing <span class="text-green">{{ username }}</span>
           </h2>
-          <p class="small text-muted mb-2" style="margin-bottom:1.6rem;">
-            {% if source == "pgn" %}
-              Uploaded PGN &mdash; takes about 20&ndash;40 seconds
-            {% elif source == "chesscom" %}
-              {{ games }} {{ perf }} Chess.com games &mdash; takes about 20&ndash;40 seconds
-            {% else %}
-              {{ games }} {{ perf }} Lichess games &mdash; takes about 20&ndash;40 seconds
-            {% endif %}
+          <p class="small text-muted mb-2" id="time-estimate" style="margin-bottom:.4rem;">
+            {% if source == "pgn" %}Uploaded PGN{% elif source == "chesscom" %}{{ games }} {{ perf }} Chess.com games{% else %}{{ games }} {{ perf }} Lichess games{% endif %}
           </p>
+          <div class="time-row" id="time-row">Estimating time&hellip;</div>
 
           <div class="progress-track mb-2" style="margin-bottom:.6rem;">
             <div id="prog-bar" class="progress-fill" style="width:4%;"></div>
@@ -60,6 +64,10 @@
             {% endif %}
           </ul>
 
+          <div class="fact-box" id="fact-box">
+            <strong>&#9822; Did you know?</strong> Loading chess wisdom&hellip;
+          </div>
+
         </div>
       </div>
     </div>
@@ -74,81 +82,132 @@
   const pgnToken  = {{ pgn_token | tojson }};
   const statusEl  = document.getElementById("status-text");
   const barEl     = document.getElementById("prog-bar");
-  // Map message keywords → step index (1-based) to activate
-  // Cloud eval messages ("Cloud eval: game X/N") are handled separately
-  // for progress bar granularity but don't change the active step.
+  const timeRowEl = document.getElementById("time-row");
+
+  // ── Accurate time estimate per platform ──────────────────────────────
+  const numGames = parseInt(games) || 20;
+  function calcEstimate() {
+    if (source === "lichess") return Math.round(numGames * 0.6 + 10);
+    if (source === "chesscom") return Math.round(numGames * 6 + 20);
+    if (source === "pgn")      return Math.round(numGames * 5 + 15);
+    return 30;
+  }
+  function fmtSecs(s) {
+    if (s < 90) return `~${s} seconds`;
+    return `~${Math.ceil(s / 60)} minute${Math.ceil(s/60) > 1 ? 's' : ''}`;
+  }
+  const estimatedSecs = calcEstimate();
+  timeRowEl.textContent = `Expected time: ${fmtSecs(estimatedSecs)}`;
+
+  // ── Live elapsed / countdown timer ──────────────────────────────────
+  const startTime = Date.now();
+  const timerInterval = setInterval(() => {
+    const elapsed   = Math.round((Date.now() - startTime) / 1000);
+    const remaining = estimatedSecs - elapsed;
+    if (remaining > 8)
+      timeRowEl.textContent = `About ${fmtSecs(remaining)} remaining`;
+    else if (remaining > 0)
+      timeRowEl.textContent = `Almost there\u2026 (${elapsed}s elapsed)`;
+    else
+      timeRowEl.textContent = `Still working\u2026 ${elapsed}s elapsed \u2014 hang tight`;
+  }, 1000);
+
+  // ── Chess facts carousel ─────────────────────────────────────────────
+  const FACTS = [
+    "There are more possible chess games than atoms in the observable universe.",
+    "The word <strong>checkmate</strong> comes from Persian <em>Shah Mat</em> \u2014 \"the king is helpless.\"",
+    "A knight can visit all 64 squares exactly once \u2014 this is called the <strong>Knight's Tour</strong>.",
+    "Magnus Carlsen became World Champion at 22 and held the title for over a decade.",
+    "The longest recorded chess game lasted <strong>269 moves</strong> and ended in a draw.",
+    "Bobby Fischer learned chess at age 6 and became a grandmaster at just <strong>15</strong>.",
+    "<strong>En passant</strong> is French for \"in passing\" \u2014 the only capture not made on the captured piece's square.",
+    "The queen was originally the weakest piece. It gained its power in the 15th century.",
+    "Grandmasters don\u2019t calculate every move \u2014 they recognise <strong>patterns</strong> from thousands of games.",
+    "Blitz and classical chess activate <strong>different parts of the brain</strong>, studies show.",
+    "Deep Blue beat Kasparov in <strong>1997</strong> \u2014 the first computer to defeat a reigning world champion.",
+    "Analysing your own games is considered the <strong>fastest way to improve</strong> at any level.",
+    "<strong>Zugzwang</strong>: a position where any move you make worsens your own situation.",
+    "The Sicilian Defence is the <strong>most popular</strong> opening response to 1.e4 at all levels.",
+    "A pawn reaching the other end can become <strong>any piece</strong> \u2014 almost always a queen.",
+  ];
+  const factEl = document.getElementById("fact-box");
+  let factIdx  = Math.floor(Math.random() * FACTS.length);
+  factEl.innerHTML = `<strong>&#9822; Chess fact</strong> &mdash; ${FACTS[factIdx]}`;
+  const factInterval = setInterval(() => {
+    factEl.style.opacity = "0";
+    setTimeout(() => {
+      factIdx = (factIdx + 1) % FACTS.length;
+      factEl.innerHTML = `<strong>&#9822; Chess fact</strong> &mdash; ${FACTS[factIdx]}`;
+      factEl.style.opacity = "1";
+    }, 500);
+  }, 8000);
+
+  // ── Step activation (keyword-driven) ────────────────────────────────
   const STEP_TRIGGERS = [
     { key: "Fetching",            step: 1 },
     { key: "Parsing",             step: 2 },
-    { key: "cloud evaluations",   step: 3 },   // "Fetching cloud evaluations..."
-    { key: "Cloud eval:",         step: 3 },   // per-game updates — stay on step 3
+    { key: "cloud evaluations",   step: 3 },
+    { key: "Cloud eval:",         step: 3 },
     { key: "Cloud eval complete", step: 3 },
     { key: "Computing move",      step: source === "lichess" ? 3 : 4 },
     { key: "Detecting patterns",  step: source === "lichess" ? 4 : 5 },
-    { key: "Building",            step: source === "lichess" ? 5 : 5 },
   ];
-
   let activeStep = 0;
 
   function activateStep(n) {
-    if (n <= activeStep) return;   // never go backwards
+    if (n <= activeStep) return;
     for (let i = 1; i <= 5; i++) {
       const el = document.getElementById("s" + i);
       if (!el) continue;
-      if (i < n)  el.className = "done";
+      if (i < n)   el.className = "done";
       if (i === n) el.className = "active";
-      if (i > n)  el.className = "";
+      if (i > n)   el.className = "";
     }
     activeStep = n;
-    const pct = Math.min(Math.round((n / 5) * 88) + 4, 92);
-    barEl.style.width = pct + "%";
+    if (n < 3) barEl.style.width = (n * 15 + 4) + "%";
   }
 
   function updateFromMessage(msg) {
     statusEl.textContent = msg;
-
-    // Check for cloud eval per-game progress — update bar granularly
-    const m = msg.match(/game[s]?\s+(\d+)[–-]?(\d+)?\/(\d+)/i);
+    const m = msg.match(/games?\s+(\d+)[–\-]?(\d+)?\/(\d+)/i);
     if (m) {
-      const current = parseInt(m[1]);
-      const total   = parseInt(m[3]);
-      if (total > 0) {
-        // Cloud eval is step 3; interpolate bar between 40% and 80%
-        const pct = 40 + Math.round((current / total) * 40);
-        barEl.style.width = pct + "%";
-      }
+      const lo = parseInt(m[1]), total = parseInt(m[3]);
+      if (total > 0) barEl.style.width = (40 + Math.round((lo / total) * 40)) + "%";
       activateStep(3);
       return;
     }
-
     for (const t of STEP_TRIGGERS) {
       if (msg.includes(t.key)) { activateStep(t.step); return; }
     }
   }
 
+  // ── SSE ──────────────────────────────────────────────────────────────
   let url = `/stream?source=${encodeURIComponent(source)}&username=${encodeURIComponent(username)}&games=${encodeURIComponent(games)}&perf=${encodeURIComponent(perf)}`;
   if (pgnToken) url += `&pgn_token=${encodeURIComponent(pgnToken)}`;
   const src = new EventSource(url);
 
-  src.onmessage = function(e) { updateFromMessage(e.data); };
+  src.onmessage = e => updateFromMessage(e.data);
 
-  src.addEventListener("done", function(e) {
+  src.addEventListener("done", e => {
     src.close();
+    clearInterval(timerInterval); clearInterval(factInterval);
     barEl.style.width = "100%";
-    statusEl.textContent = "Done! Loading your report\u2026";
-    // Replace so back button skips this page
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    timeRowEl.textContent = `Completed in ${elapsed}s`;
+    statusEl.textContent  = "Done! Loading your report\u2026";
     window.location.replace("/report/" + e.data);
   });
 
-  src.addEventListener("error", function(e) {
+  src.addEventListener("error", e => {
     src.close();
-    const msg = e.data || "Connection lost. Please try again.";
-    window.location.replace("/error?msg=" + encodeURIComponent(msg));
+    clearInterval(timerInterval); clearInterval(factInterval);
+    window.location.replace("/error?msg=" + encodeURIComponent(e.data || "Connection lost."));
   });
 
-  src.onerror = function() {
+  src.onerror = () => {
     if (src.readyState === EventSource.CLOSED) return;
     src.close();
+    clearInterval(timerInterval); clearInterval(factInterval);
     window.location.replace("/error?msg=" + encodeURIComponent("Connection lost. Please try again."));
   };
 </script>
