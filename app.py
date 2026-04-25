@@ -69,7 +69,7 @@ def analyse():
     username = request.form.get("username", "").strip()
     if not username:
         return redirect(url_for("index"))
-    games = _clamp(request.form.get("games", 50), 10, 200)
+    games = _clamp(request.form.get("games", 50), 5, 200)
     perf  = request.form.get("perf", "rapid")
     return redirect(url_for("loading",
                             source=source,
@@ -94,7 +94,7 @@ def loading():
 def stream():
     source   = request.args.get("source", "lichess")
     username = request.args.get("username", "").strip()
-    games    = _clamp(request.args.get("games", 50), 10, 200)
+    games    = _clamp(request.args.get("games", 50), 5, 200)
     perf     = request.args.get("perf", "rapid")
     pgn_token = request.args.get("pgn_token", "")
 
