@@ -142,6 +142,17 @@ def stream():
                 yield _err("Could not parse any games. The PGN data may be malformed.")
                 return
 
+            # ── Stockfish enrichment (optional) ──────────────────────────────
+            from chess_analyzer.stockfish_eval import get_stockfish_path, enrich_games_with_stockfish
+            if get_stockfish_path():
+                needs_eval = sum(1 for g in game_records if not g.has_evals)
+                if needs_eval:
+                    yield _msg(
+                        f"Running Stockfish on {needs_eval} games without eval data "
+                        f"(depth 12) — takes ~{needs_eval * 3}s..."
+                    )
+                    game_records = enrich_games_with_stockfish(game_records, pgn_blocks, depth=12)
+
             # ── Analyse ──────────────────────────────────────────────────────
             yield _msg("Computing move evaluations...")
             game_records = [compute_eval_deltas(g) for g in game_records]
