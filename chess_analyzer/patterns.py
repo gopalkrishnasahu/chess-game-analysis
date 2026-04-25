@@ -2,10 +2,27 @@
 Pattern detection: identifies recurring weaknesses and strengths across games.
 Operates on a list of processed GameRecords and mutates the AnalysisReport in place.
 """
+import json
 import chess
 from collections import defaultdict
+from pathlib import Path
 
 from .models import AnalysisReport, GameRecord, PatternFinding
+
+# ECO code → English opening name (same file used by app.py for the report table)
+_ECO_FILE = Path(__file__).parent / "eco_names.json"
+_ECO_NAMES: dict[str, str] = {}
+
+
+def _opening_display_name(family: str) -> str:
+    """Return a human-readable opening name, converting ECO codes (e.g. 'B50') to names."""
+    global _ECO_NAMES
+    if not _ECO_NAMES:
+        try:
+            _ECO_NAMES = json.loads(_ECO_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return _ECO_NAMES.get(family, family)
 
 MIN_GAMES_FOR_OPENING = 3    # minimum games per opening family to report on it
 TIME_PRESSURE_SECS    = 15   # seconds threshold for "time pressure"
@@ -160,6 +177,7 @@ def _opening_struggles(report: AnalysisReport) -> list[PatternFinding]:
     for family, s in report.opening_stats.items():
         if s.games_played < MIN_GAMES_FOR_OPENING:
             continue
+        name = _opening_display_name(family)   # converts ECO codes to readable names
         if has_evals:
             # With eval: require poor win rate AND elevated blunders for confidence
             if not (s.win_rate < 0.40 and s.avg_blunders >= 1.8):
@@ -171,7 +189,7 @@ def _opening_struggles(report: AnalysisReport) -> list[PatternFinding]:
                 continue
             blunder_suffix = ""
         desc = (
-            f"{family}: {s.wins}W-{s.draws}D-{s.losses}L "
+            f"{name}: {s.wins}W-{s.draws}D-{s.losses}L "
             f"({int(s.win_rate*100)}% win rate{blunder_suffix})"
         )
         themes = _lookup_opening_themes(family)
@@ -186,7 +204,7 @@ def _opening_struggles(report: AnalysisReport) -> list[PatternFinding]:
             severity="moderate",
             example_game_ids=[],
             recommendation=(
-                f"You're struggling in the {family}. Pick one solid variation and study it "
+                f"You're struggling in the {name}. Pick one solid variation and study it "
                 f"to move 15 rather than playing it by feel.{tactic_hint}"
             ),
         ))
@@ -271,6 +289,7 @@ def _opening_strengths(report: AnalysisReport) -> list[PatternFinding]:
     for family, s in report.opening_stats.items():
         if s.games_played < MIN_GAMES_FOR_OPENING:
             continue
+        name = _opening_display_name(family)   # converts ECO codes to readable names
         if has_evals:
             if not (s.win_rate >= 0.58 and s.avg_blunders <= 1.2):
                 continue
@@ -281,7 +300,7 @@ def _opening_strengths(report: AnalysisReport) -> list[PatternFinding]:
                 continue
             blunder_suffix = ""
         desc = (
-            f"{family}: {s.wins}W-{s.draws}D-{s.losses}L "
+            f"{name}: {s.wins}W-{s.draws}D-{s.losses}L "
             f"({int(s.win_rate*100)}% win rate{blunder_suffix})"
         )
         patterns.append(PatternFinding(
@@ -290,7 +309,7 @@ def _opening_strengths(report: AnalysisReport) -> list[PatternFinding]:
             frequency=s.games_played,
             severity="minor",
             example_game_ids=[],
-            recommendation=f"Keep playing the {family} — it's working well for you.",
+            recommendation=f"Keep playing the {name} — it's working well for you.",
         ))
     return patterns
 
