@@ -26,47 +26,47 @@ MATE_SENTINEL  = 100.0
 def enrich_games_with_cloud_eval(
     game_records: list,
     depth: int = 20,
-    max_moves_per_game: int = 30,   # only evaluate first N moves (opening + early middlegame)
-) -> list:
+    max_moves_per_game: int = 30,
+):
     """
-    For each game without eval data, query Lichess cloud-eval for each position
-    and fill in eval_after on MoveRecords.
+    Generator — yields progress strings, modifies game_records in-place.
 
-    max_moves_per_game: stop querying after this many moves (cloud eval is most
-    useful for opening/middlegame; endgame positions have lower hit rates).
+    Usage in a Flask SSE generator:
+        for msg in enrich_games_with_cloud_eval(game_records):
+            yield _msg(msg)
+
+    max_moves_per_game: only evaluate first N moves per game (opening +
+    early middlegame have the best cloud coverage; endgame less so).
     """
     needs_eval = [(i, g) for i, g in enumerate(game_records) if not g.has_evals]
+    total = len(needs_eval)
     if not needs_eval:
-        return game_records
+        return
 
-    for _, game in needs_eval:
+    for idx, (_, game) in enumerate(needs_eval):
+        yield f"Cloud eval: game {idx + 1}/{total} — fetching positions..."
+
         board = chess.Board()
         hits = 0
 
         for move_idx, move_rec in enumerate(game.moves):
-            if move_idx >= max_moves_per_game * 2:   # *2 because both colours
+            if move_idx >= max_moves_per_game * 2:   # *2 = both colours' plies
                 break
-
             try:
                 uci_move = chess.Move.from_uci(move_rec.uci)
                 board.push(uci_move)
             except Exception:
                 break
 
-            fen = board.fen()
-            eval_val = _fetch_cloud_eval(fen, depth)
-
+            eval_val = _fetch_cloud_eval(board.fen(), depth)
             if eval_val is not None:
                 move_rec.eval_after = eval_val
                 hits += 1
 
             time.sleep(REQUEST_DELAY)
 
-        # Mark as having evals if we got at least 8 positions evaluated
         if hits >= 8:
             game.has_evals = True
-
-    return game_records
 
 
 def _fetch_cloud_eval(fen: str, depth: int) -> Optional[float]:

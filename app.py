@@ -156,9 +156,10 @@ def stream():
                 elif source in ("chesscom", "pgn"):
                     yield _msg(
                         f"Fetching cloud evaluations for {needs_eval} games "
-                        f"via Lichess Cloud Eval (~{needs_eval * 4}s)..."
+                        f"via Lichess (~{needs_eval * 4}s)..."
                     )
-                    game_records = enrich_games_with_cloud_eval(game_records)
+                    for progress_msg in enrich_games_with_cloud_eval(game_records):
+                        yield _msg(progress_msg)
 
             # ── Analyse ──────────────────────────────────────────────────────
             yield _msg("Computing move evaluations...")
