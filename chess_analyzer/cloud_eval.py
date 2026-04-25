@@ -4,39 +4,35 @@ Lichess Cloud Eval enrichment — zero installation required.
 Uses the Lichess public cloud-eval API (free, no auth):
   GET https://lichess.org/api/cloud-eval?fen=<FEN>
 
-Coverage: positions that have been analysed on Lichess (Stockfish depth 20-30).
-Common openings + mainline middlegames: ~70-80% hit rate.
-Very unusual positions: may return nothing (gracefully skipped).
-
-Rate limit: ~1 req/s is safe. We batch with a small delay between requests.
+Positions are fetched in parallel (8 workers) to keep analysis fast.
+Coverage: ~70-80% of opening/early middlegame positions.
 """
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
 import chess
-import chess.pgn
 import requests
 
-CLOUD_EVAL_URL = "https://lichess.org/api/cloud-eval"
-HEADERS = {"Accept": "application/json"}
-REQUEST_DELAY = 0.12   # ~8 req/s — well within Lichess limits
-MATE_SENTINEL  = 100.0
+CLOUD_EVAL_URL  = "https://lichess.org/api/cloud-eval"
+REQUEST_TIMEOUT = 3      # seconds per request — fail fast on slow responses
+MAX_WORKERS     = 8      # parallel requests to Lichess cloud eval
+MAX_MOVES       = 15     # evaluate first N full moves per game (30 plies)
+PROGRESS_EVERY  = 3      # yield a progress message every N games
+MATE_SENTINEL   = 100.0
+
+# Shared session for connection reuse
+_session = requests.Session()
+_session.headers.update({"Accept": "application/json"})
 
 
-def enrich_games_with_cloud_eval(
-    game_records: list,
-    depth: int = 20,
-    max_moves_per_game: int = 30,
-):
+def enrich_games_with_cloud_eval(game_records: list):
     """
     Generator — yields progress strings, modifies game_records in-place.
 
-    Usage in a Flask SSE generator:
+    Usage:
         for msg in enrich_games_with_cloud_eval(game_records):
             yield _msg(msg)
-
-    max_moves_per_game: only evaluate first N moves per game (opening +
-    early middlegame have the best cloud coverage; endgame less so).
     """
     needs_eval = [(i, g) for i, g in enumerate(game_records) if not g.has_evals]
     total = len(needs_eval)
@@ -44,46 +40,70 @@ def enrich_games_with_cloud_eval(
         return
 
     for idx, (_, game) in enumerate(needs_eval):
-        yield f"Cloud eval: game {idx + 1}/{total} — fetching positions..."
+        if idx % PROGRESS_EVERY == 0:
+            yield f"Cloud eval: games {idx + 1}–{min(idx + PROGRESS_EVERY, total)}/{total}..."
 
-        board = chess.Board()
-        hits = 0
+        _eval_game_parallel(game)
 
-        for move_idx, move_rec in enumerate(game.moves):
-            if move_idx >= max_moves_per_game * 2:   # *2 = both colours' plies
-                break
+    yield f"Cloud eval complete — eval data added to {total} games."
+
+
+def _eval_game_parallel(game) -> None:
+    """Fetch evals for all positions in a game using a thread pool."""
+    # Build list of (move_idx, fen) for positions we want to evaluate
+    board = chess.Board()
+    positions: list[tuple[int, str]] = []   # (move_idx, fen)
+
+    for move_idx, move_rec in enumerate(game.moves):
+        if move_idx >= MAX_MOVES * 2:   # *2 = plies for both colours
+            break
+        try:
+            board.push(chess.Move.from_uci(move_rec.uci))
+        except Exception:
+            break
+        positions.append((move_idx, board.fen()))
+
+    if not positions:
+        return
+
+    # Fetch all positions in parallel
+    results: dict[int, Optional[float]] = {}
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        futures = {
+            pool.submit(_fetch_cloud_eval, fen): move_idx
+            for move_idx, fen in positions
+        }
+        for future in as_completed(futures):
+            move_idx = futures[future]
             try:
-                uci_move = chess.Move.from_uci(move_rec.uci)
-                board.push(uci_move)
+                results[move_idx] = future.result()
             except Exception:
-                break
+                results[move_idx] = None
 
-            eval_val = _fetch_cloud_eval(board.fen(), depth)
-            if eval_val is not None:
-                move_rec.eval_after = eval_val
-                hits += 1
+    # Write results back to move records
+    hits = 0
+    for move_idx, eval_val in results.items():
+        if eval_val is not None:
+            game.moves[move_idx].eval_after = eval_val
+            hits += 1
 
-            time.sleep(REQUEST_DELAY)
-
-        if hits >= 8:
-            game.has_evals = True
+    if hits >= 6:   # enough evals to be meaningful
+        game.has_evals = True
 
 
-def _fetch_cloud_eval(fen: str, depth: int) -> Optional[float]:
+def _fetch_cloud_eval(fen: str) -> Optional[float]:
     """Returns eval in pawns (White's perspective), or None on miss/error."""
     try:
-        resp = requests.get(
+        resp = _session.get(
             CLOUD_EVAL_URL,
             params={"fen": fen, "multiPv": 1},
-            headers=HEADERS,
-            timeout=5,
+            timeout=REQUEST_TIMEOUT,
         )
         if resp.status_code == 404:
-            return None   # position not in cloud DB — normal, not an error
+            return None
         resp.raise_for_status()
 
-        data = resp.json()
-        pvs = data.get("pvs", [])
+        pvs = resp.json().get("pvs", [])
         if not pvs:
             return None
 
@@ -91,7 +111,7 @@ def _fetch_cloud_eval(fen: str, depth: int) -> Optional[float]:
         if "mate" in pv:
             return MATE_SENTINEL if pv["mate"] > 0 else -MATE_SENTINEL
         if "cp" in pv:
-            return pv["cp"] / 100.0   # centipawns → pawns
+            return pv["cp"] / 100.0
 
     except Exception:
         pass

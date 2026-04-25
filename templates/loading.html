@@ -49,9 +49,15 @@
           <ul class="step-list" id="steps" style="margin-top:1.2rem;text-align:left;">
             <li id="s1"><span class="step-dot"></span>{% if source == "pgn" %}Reading uploaded PGN{% elif source == "chesscom" %}Fetching games from Chess.com{% else %}Fetching games from Lichess{% endif %}</li>
             <li id="s2"><span class="step-dot"></span>Parsing PGN data</li>
-            <li id="s3"><span class="step-dot"></span>Computing eval deltas</li>
+            {% if source in ("chesscom", "pgn") %}
+            <li id="s3"><span class="step-dot"></span>Fetching eval data</li>
+            <li id="s4"><span class="step-dot"></span>Computing move errors</li>
+            <li id="s5"><span class="step-dot"></span>Detecting patterns &amp; building report</li>
+            {% else %}
+            <li id="s3"><span class="step-dot"></span>Computing move errors</li>
             <li id="s4"><span class="step-dot"></span>Detecting patterns</li>
             <li id="s5"><span class="step-dot"></span>Building report</li>
+            {% endif %}
           </ul>
 
         </div>
@@ -68,27 +74,63 @@
   const pgnToken  = {{ pgn_token | tojson }};
   const statusEl  = document.getElementById("status-text");
   const barEl     = document.getElementById("prog-bar");
-  const stepIds   = ["s1","s2","s3","s4","s5"];
-  let stepIdx     = 0;
+  // Map message keywords → step index (1-based) to activate
+  // Cloud eval messages ("Cloud eval: game X/N") are handled separately
+  // for progress bar granularity but don't change the active step.
+  const STEP_TRIGGERS = [
+    { key: "Fetching",            step: 1 },
+    { key: "Parsing",             step: 2 },
+    { key: "cloud evaluations",   step: 3 },   // "Fetching cloud evaluations..."
+    { key: "Cloud eval:",         step: 3 },   // per-game updates — stay on step 3
+    { key: "Cloud eval complete", step: 3 },
+    { key: "Computing move",      step: source === "lichess" ? 3 : 4 },
+    { key: "Detecting patterns",  step: source === "lichess" ? 4 : 5 },
+    { key: "Building",            step: source === "lichess" ? 5 : 5 },
+  ];
 
-  function advanceStep() {
-    if (stepIdx > 0) document.getElementById(stepIds[stepIdx-1]).className = "done";
-    if (stepIdx < stepIds.length) {
-      document.getElementById(stepIds[stepIdx]).className = "active";
-      stepIdx++;
+  let activeStep = 0;
+
+  function activateStep(n) {
+    if (n <= activeStep) return;   // never go backwards
+    for (let i = 1; i <= 5; i++) {
+      const el = document.getElementById("s" + i);
+      if (!el) continue;
+      if (i < n)  el.className = "done";
+      if (i === n) el.className = "active";
+      if (i > n)  el.className = "";
     }
-    const pct = Math.min(Math.round((stepIdx / stepIds.length) * 88) + 4, 92);
+    activeStep = n;
+    const pct = Math.min(Math.round((n / 5) * 88) + 4, 92);
     barEl.style.width = pct + "%";
+  }
+
+  function updateFromMessage(msg) {
+    statusEl.textContent = msg;
+
+    // Check for cloud eval per-game progress — update bar granularly
+    const m = msg.match(/game[s]?\s+(\d+)[–-]?(\d+)?\/(\d+)/i);
+    if (m) {
+      const current = parseInt(m[1]);
+      const total   = parseInt(m[3]);
+      if (total > 0) {
+        // Cloud eval is step 3; interpolate bar between 40% and 80%
+        const pct = 40 + Math.round((current / total) * 40);
+        barEl.style.width = pct + "%";
+      }
+      activateStep(3);
+      return;
+    }
+
+    for (const t of STEP_TRIGGERS) {
+      if (msg.includes(t.key)) { activateStep(t.step); return; }
+    }
   }
 
   let url = `/stream?source=${encodeURIComponent(source)}&username=${encodeURIComponent(username)}&games=${encodeURIComponent(games)}&perf=${encodeURIComponent(perf)}`;
   if (pgnToken) url += `&pgn_token=${encodeURIComponent(pgnToken)}`;
   const src = new EventSource(url);
 
-  src.onmessage = function(e) {
-    statusEl.textContent = e.data;
-    advanceStep();
-  };
+  src.onmessage = function(e) { updateFromMessage(e.data); };
 
   src.addEventListener("done", function(e) {
     src.close();
