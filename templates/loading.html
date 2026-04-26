@@ -4,25 +4,62 @@
 
 {% block extra_styles %}
 <style>
-  @keyframes pulse-piece { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.7;transform:scale(.92)} }
-  .piece-anim { font-size: 2.6rem; animation: pulse-piece 1.4s ease-in-out infinite; line-height:1; display:block; filter: drop-shadow(0 0 10px rgba(118,150,86,0.5)); }
+  @keyframes pulse-piece { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.75;transform:scale(.93)} }
+  .piece-anim {
+    display: block; margin: 0 auto;
+    width: 2.8rem; height: 2.8rem;
+    color: var(--accent);
+    animation: pulse-piece 1.4s ease-in-out infinite;
+    filter: drop-shadow(0 0 12px rgba(230,193,122,0.5));
+  }
+
+  /* Step list */
   .step-list { list-style: none; margin: 0; padding: 0; }
-  .step-list li { display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: var(--text-muted); padding: 0.28rem 0; transition: color 0.3s; }
-  .step-list li.active { color: var(--green-light); font-weight: 500; }
-  .step-list li.done { color: var(--text-dim); }
-  .step-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--surface-3); flex-shrink: 0; transition: background 0.3s; }
-  .step-list li.active .step-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
-  .step-list li.done .step-dot { background: var(--text-dim); }
-  #status-text { font-size: 0.85rem; color: var(--gold-light); min-height: 1.3em; }
-  .time-row { font-size: 0.75rem; color: var(--text-dim); margin-top: .3rem; margin-bottom: 1.2rem; min-height: 1.1em; }
+  .step-list li {
+    display: flex; align-items: center; gap: 0.7rem;
+    font-size: 0.82rem; color: var(--fg-3);
+    padding: 0.3rem 0; transition: color 0.3s;
+  }
+  .step-list li.active { color: var(--accent); font-weight: 600; }
+  .step-list li.done   { color: var(--fg-4); }
+
+  /* Step number badge */
+  .step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; flex-shrink: 0;
+    font-size: .65rem; font-weight: 700;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line-2);
+    background: var(--surface-2);
+    color: var(--fg-4);
+    transition: all 0.3s;
+  }
+  .step-list li.active .step-num {
+    background: var(--accent-soft);
+    border-color: var(--accent-line);
+    color: var(--accent);
+    box-shadow: 0 0 8px rgba(230,193,122,0.18);
+  }
+  .step-list li.done .step-num {
+    background: var(--positive-soft);
+    border-color: rgba(74,222,128,0.2);
+    color: var(--positive);
+  }
+
+  #status-text { font-size: 0.85rem; color: var(--accent); min-height: 1.3em; }
+  .time-row { font-family: var(--font-mono); font-size: 0.75rem; color: var(--fg-4); margin-top: .3rem; margin-bottom: 1.2rem; min-height: 1.1em; }
+
+  /* Chess fact box */
   .fact-box {
     margin-top: 1.4rem; padding: .65rem .9rem;
-    background: rgba(118,150,86,.06); border: 1px solid rgba(118,150,86,.15);
-    border-radius: 8px; font-size: .78rem; color: var(--text-muted);
+    background: var(--surface-2);
+    border-left: 2px solid var(--accent-lo);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    font-size: .78rem; color: var(--fg-3);
     line-height: 1.6; text-align: left; min-height: 3.2em;
     transition: opacity 0.5s;
   }
-  .fact-box strong { color: var(--green-light); }
+  .fact-box strong { color: var(--accent); }
 </style>
 {% endblock %}
 
@@ -33,10 +70,12 @@
       <div class="card">
         <div class="card-body text-center" style="padding: 2.4rem 2rem 2rem;">
 
-          <span class="piece-anim">&#9822;</span>
+          <svg class="piece-anim" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+            <path d="M9 27h14v-2H9v2zm1.5-4h11l-1-3H22c1.1 0 2-.9 2-2v-1c0-1.1-.9-2-2-2h-1.5l-2-5c.9-.5 1.5-1.5 1.5-2.6C20 9.1 18.2 7.5 16 7c-.3-1.1-1.3-2-2.5-2C12.1 5 11 6.1 11 7.5c0 .6.2 1.1.5 1.5L10 12H9c-1.1 0-2 .9-2 2v1c0 1.1.9 2 2 2h.5l-1 3z"/>
+          </svg>
 
           <h2 style="font-size:1.35rem;margin:.8rem 0 .3rem;">
-            Analysing <span class="text-green">{{ username }}</span>
+            Analysing <span style="color:var(--accent);">{{ username }}</span>
           </h2>
           <p class="small text-muted mb-2" id="time-estimate" style="margin-bottom:.4rem;">
             {% if source == "pgn" %}Uploaded PGN{% elif source == "chesscom" %}{{ games }} {{ perf }} Chess.com games{% else %}{{ games }} {{ perf }} Lichess games{% endif %}
@@ -51,21 +90,21 @@
           <div class="divider"></div>
 
           <ul class="step-list" id="steps" style="margin-top:1.2rem;text-align:left;">
-            <li id="s1"><span class="step-dot"></span>{% if source == "pgn" %}Reading uploaded PGN{% elif source == "chesscom" %}Fetching games from Chess.com{% else %}Fetching games from Lichess{% endif %}</li>
-            <li id="s2"><span class="step-dot"></span>Parsing PGN data</li>
+            <li id="s1"><span class="step-num">1</span>{% if source == "pgn" %}Reading uploaded PGN{% elif source == "chesscom" %}Fetching games from Chess.com{% else %}Fetching games from Lichess{% endif %}</li>
+            <li id="s2"><span class="step-num">2</span>Parsing PGN data</li>
             {% if source == "pgn" %}
-            <li id="s3"><span class="step-dot"></span>Fetching eval data</li>
-            <li id="s4"><span class="step-dot"></span>Computing move errors</li>
-            <li id="s5"><span class="step-dot"></span>Detecting patterns &amp; building report</li>
+            <li id="s3"><span class="step-num">3</span>Fetching eval data</li>
+            <li id="s4"><span class="step-num">4</span>Computing move errors</li>
+            <li id="s5"><span class="step-num">5</span>Detecting patterns &amp; building report</li>
             {% else %}
-            <li id="s3"><span class="step-dot"></span>Computing move errors</li>
-            <li id="s4"><span class="step-dot"></span>Detecting patterns</li>
-            <li id="s5"><span class="step-dot"></span>Building report</li>
+            <li id="s3"><span class="step-num">3</span>Computing move errors</li>
+            <li id="s4"><span class="step-num">4</span>Detecting patterns</li>
+            <li id="s5"><span class="step-num">5</span>Building report</li>
             {% endif %}
           </ul>
 
           <div class="fact-box" id="fact-box">
-            <strong>&#9822; Did you know?</strong> Loading chess wisdom&hellip;
+            <strong>&#9822; Chess fact</strong> &mdash; Loading chess wisdom&hellip;
           </div>
 
         </div>
@@ -87,17 +126,17 @@
   // ── Accurate time estimate per platform ──────────────────────────────
   const numGames = parseInt(games) || 20;
   function calcEstimate() {
-    if (source === "lichess") return Math.round(numGames * 0.6 + 10);
+    if (source === "lichess")  return Math.round(numGames * 0.6 + 10);
     if (source === "chesscom") return Math.round(numGames * 0.5 + 8);   // no cloud eval
     if (source === "pgn")      return Math.round(numGames * 5 + 15);    // cloud eval for PGN
     return 30;
   }
   function fmtSecs(s) {
-    if (s < 90) return `~${s} seconds`;
-    return `~${Math.ceil(s / 60)} minute${Math.ceil(s/60) > 1 ? 's' : ''}`;
+    if (s < 90) return `~${s}s`;
+    return `~${Math.ceil(s / 60)} min`;
   }
   const estimatedSecs = calcEstimate();
-  timeRowEl.textContent = `Expected time: ${fmtSecs(estimatedSecs)}`;
+  timeRowEl.textContent = `Expected: ${fmtSecs(estimatedSecs)}`;
 
   // ── Live elapsed / countdown timer ──────────────────────────────────
   const startTime = Date.now();
@@ -105,30 +144,30 @@
     const elapsed   = Math.round((Date.now() - startTime) / 1000);
     const remaining = estimatedSecs - elapsed;
     if (remaining > 8)
-      timeRowEl.textContent = `About ${fmtSecs(remaining)} remaining`;
+      timeRowEl.textContent = `${fmtSecs(remaining)} remaining · ${elapsed}s elapsed`;
     else if (remaining > 0)
-      timeRowEl.textContent = `Almost there\u2026 (${elapsed}s elapsed)`;
+      timeRowEl.textContent = `Almost there… (${elapsed}s elapsed)`;
     else
-      timeRowEl.textContent = `Still working\u2026 ${elapsed}s elapsed \u2014 hang tight`;
+      timeRowEl.textContent = `Still working… ${elapsed}s elapsed — hang tight`;
   }, 1000);
 
   // ── Chess facts carousel ─────────────────────────────────────────────
   const FACTS = [
     "There are more possible chess games than atoms in the observable universe.",
-    "The word <strong>checkmate</strong> comes from Persian <em>Shah Mat</em> \u2014 \"the king is helpless.\"",
-    "A knight can visit all 64 squares exactly once \u2014 this is called the <strong>Knight's Tour</strong>.",
+    "The word <strong>checkmate</strong> comes from Persian <em>Shah Mat</em> — \"the king is helpless.\"",
+    "A knight can visit all 64 squares exactly once — this is called the <strong>Knight's Tour</strong>.",
     "Magnus Carlsen became World Champion at 22 and held the title for over a decade.",
     "The longest recorded chess game lasted <strong>269 moves</strong> and ended in a draw.",
     "Bobby Fischer learned chess at age 6 and became a grandmaster at just <strong>15</strong>.",
-    "<strong>En passant</strong> is French for \"in passing\" \u2014 the only capture not made on the captured piece's square.",
+    "<strong>En passant</strong> is French for \"in passing\" — the only capture not on the captured piece's square.",
     "The queen was originally the weakest piece. It gained its power in the 15th century.",
-    "Grandmasters don\u2019t calculate every move \u2014 they recognise <strong>patterns</strong> from thousands of games.",
+    "Grandmasters don't calculate every move — they recognise <strong>patterns</strong> from thousands of games.",
     "Blitz and classical chess activate <strong>different parts of the brain</strong>, studies show.",
-    "Deep Blue beat Kasparov in <strong>1997</strong> \u2014 the first computer to defeat a reigning world champion.",
+    "Deep Blue beat Kasparov in <strong>1997</strong> — the first computer to defeat a reigning world champion.",
     "Analysing your own games is considered the <strong>fastest way to improve</strong> at any level.",
     "<strong>Zugzwang</strong>: a position where any move you make worsens your own situation.",
     "The Sicilian Defence is the <strong>most popular</strong> opening response to 1.e4 at all levels.",
-    "A pawn reaching the other end can become <strong>any piece</strong> \u2014 almost always a queen.",
+    "A pawn reaching the other end can become <strong>any piece</strong> — almost always a queen.",
   ];
   const factEl = document.getElementById("fact-box");
   let factIdx  = Math.floor(Math.random() * FACTS.length);
@@ -146,7 +185,7 @@
   const STEP_TRIGGERS = [
     { key: "Fetching",            step: 1 },
     { key: "Parsing",             step: 2 },
-    // Cloud eval only runs for PGN uploads — step 3 maps to "Fetching eval data"
+    // Cloud eval only runs for PGN uploads
     { key: "cloud evaluations",   step: source === "pgn" ? 3 : 2 },
     { key: "Cloud eval:",         step: source === "pgn" ? 3 : 2 },
     { key: "Cloud eval complete", step: source === "pgn" ? 3 : 2 },
@@ -195,7 +234,7 @@
     barEl.style.width = "100%";
     const elapsed = Math.round((Date.now() - startTime) / 1000);
     timeRowEl.textContent = `Completed in ${elapsed}s`;
-    statusEl.textContent  = "Done! Loading your report\u2026";
+    statusEl.textContent  = "Done! Loading your report…";
     window.location.replace("/report/" + e.data);
   });
 

@@ -15,44 +15,91 @@
 
   /* ── Hero ────────────────────────────────────────────── */
   .hero {
-    background: var(--surface);
-    border: 1px solid var(--border-green);
-    border-radius: var(--radius);
-    padding: 1.4rem 1.5rem;
+    background: var(--surface-1);
+    border: 1px solid var(--line-1);
+    border-radius: var(--radius-lg);
+    padding: 1.6rem 1.8rem;
     margin-bottom: 1rem;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   }
   .hero::before {
     content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, var(--green), var(--gold), var(--green));
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-line), transparent);
+  }
+  /* subtle diagonal board pattern */
+  .hero::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-conic-gradient(rgba(255,255,255,0.012) 0% 25%, transparent 0% 50%);
+    background-size: 40px 40px;
+    pointer-events: none;
   }
   .hero-inner {
-    display: flex; align-items: center; justify-content: space-between;
-    flex-wrap: wrap; gap: .8rem;
+    position: relative; z-index: 1;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    flex-wrap: wrap; gap: 1rem;
   }
   .hero-name {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.8rem;
+    font-family: var(--font-display);
+    font-size: 2rem;
     font-weight: 700;
     color: #ffffff;
     line-height: 1.1;
-    margin-bottom: .3rem;
+    margin-bottom: .35rem;
   }
-  .hero-meta { font-size: .78rem; color: var(--text-muted); }
-  .hero-meta .eval-warn { color: var(--yellow); }
-  .wdl { text-align: right; }
-  .wdl-nums { font-size: 1.7rem; font-weight: 700; white-space: nowrap; }
-  .wdl-rate { font-size: .78rem; color: var(--text-muted); margin-top: .15rem; }
-  @media(max-width:480px){ .hero-name{font-size:1.4rem;} .wdl-nums{font-size:1.3rem;} }
+  .hero-meta { font-size: .78rem; color: var(--fg-3); }
+  .hero-meta .eval-warn { color: var(--warning); }
 
-  /* ── Card ────────────────────────────────────────────── */
-  /* (base.html provides .card; we add inner padding here) */
+  /* Primary stats — large Fraunces display numbers */
+  .hero-stats {
+    display: flex; gap: 2rem; flex-wrap: wrap;
+    margin-top: .8rem;
+  }
+  .hero-stat {}
+  .hero-stat-val {
+    font-family: var(--font-display);
+    font-size: 3rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.01em;
+  }
+  .hero-stat-lbl {
+    font-size: .65rem; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--fg-3); margin-top: .2rem;
+  }
+
+  /* W/D/L secondary row */
+  .hero-wdl {
+    display: flex; align-items: center; gap: .5rem;
+    margin-top: .6rem; padding-top: .6rem;
+    border-top: 1px solid var(--line-1);
+  }
+  .wdl-chip {
+    font-family: var(--font-mono);
+    font-size: .85rem; font-weight: 600;
+    padding: .15rem .55rem;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+  }
+  .wdl-chip.w { background: var(--positive-soft); color: var(--positive); }
+  .wdl-chip.d { background: var(--warning-soft);  color: var(--warning);  }
+  .wdl-chip.l { background: var(--negative-soft); color: var(--negative); }
+  .wdl-label  { font-size: .72rem; color: var(--fg-4); }
+
+  @media(max-width:480px){
+    .hero-name{font-size:1.5rem;}
+    .hero-stat-val{font-size:2.2rem;}
+    .hero-stats{gap:1.2rem;}
+  }
+
+  /* ── Card inner ──────────────────────────────────────── */
   .section-card .card-body { padding: 1.2rem; }
   .section-label {
     font-size: .62rem; font-weight: 700; letter-spacing: .12em;
-    text-transform: uppercase; color: var(--text-muted); margin-bottom: .9rem;
+    text-transform: uppercase; color: var(--fg-3); margin-bottom: .9rem;
     display: flex; align-items: baseline; gap: .5rem;
   }
   .section-label span { font-weight: 400; text-transform: none; letter-spacing: 0; font-size: .72rem; }
@@ -61,17 +108,23 @@
   .pills { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-bottom: .9rem; }
   .pill {
     background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: .65rem .5rem;
+    border: 1px solid var(--line-2);
+    border-radius: var(--radius-md);
+    padding: .75rem .5rem;
     text-align: center;
   }
-  .pill-val { font-size: 1.4rem; font-weight: 700; line-height: 1; }
-  .pill-lbl { font-size: .6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0; margin-top: .2rem; overflow-wrap: break-word; }
+  .pill-val {
+    font-family: var(--font-display);
+    font-size: 1.6rem; font-weight: 600; line-height: 1;
+  }
+  .pill-lbl {
+    font-size: .6rem; color: var(--fg-3); text-transform: uppercase;
+    letter-spacing: 0; margin-top: .25rem; overflow-wrap: break-word;
+  }
 
   /* ── Loss breakdown ──────────────────────────────────── */
   .loss-row {
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--line-1);
     padding-top: .65rem;
     margin-top: .65rem;
     display: flex; flex-wrap: wrap; gap: .5rem;
@@ -79,7 +132,7 @@
   .loss-chip {
     font-size: .75rem;
     background: var(--surface-2);
-    border: 1px solid var(--border);
+    border: 1px solid var(--line-2);
     border-radius: 99px;
     padding: .22rem .65rem;
     white-space: nowrap;
@@ -88,84 +141,100 @@
   /* ── Phase bars ──────────────────────────────────────── */
   .phase-item { display: grid; grid-template-columns: 82px 1fr 34px; align-items: center; gap: .7rem; margin-bottom: .7rem; }
   .phase-item:last-child { margin-bottom: 0; }
-  .phase-lbl { font-size: .8rem; color: var(--text); text-transform: capitalize; }
-  .phase-track { height: 6px; background: var(--surface-3); border-radius: 99px; overflow: hidden; }
+  .phase-lbl { font-size: .8rem; color: var(--fg-1); text-transform: capitalize; }
+  .phase-track { height: 5px; background: var(--surface-3); border-radius: 99px; overflow: hidden; }
   .phase-fill  { height: 100%; border-radius: 99px; }
-  .phase-score { font-size: .78rem; font-weight: 600; text-align: right; }
+  .phase-score { font-family: var(--font-mono); font-size: .78rem; font-weight: 600; text-align: right; }
   .worst-chip {
     display: inline-block; font-size: .55rem; font-weight: 700; letter-spacing: .06em;
-    text-transform: uppercase; background: var(--red-dim); color: var(--red);
+    text-transform: uppercase; background: var(--negative-soft); color: var(--negative);
     border-radius: 3px; padding: .1em .35em; vertical-align: middle; margin-left: .3rem;
   }
 
   /* ── Time ────────────────────────────────────────────── */
   .time-item { display: flex; justify-content: space-between; align-items: center; padding: .4rem 0; font-size: .83rem; }
-  .time-item + .time-item { border-top: 1px solid var(--border); }
+  .time-item + .time-item { border-top: 1px solid var(--line-1); }
 
   /* ── Opening table ───────────────────────────────────── */
   .otable { width: 100%; border-collapse: collapse; font-size: .82rem; background: transparent; }
-  .otable thead tr { border-bottom: 1px solid var(--border-green); }
+  .otable thead tr { border-bottom: 1px solid var(--accent-line); }
   .otable th {
     font-size: .6rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-    color: var(--text-muted); padding: .4rem .6rem;
-    background: transparent !important;
-    border: none;
+    color: var(--fg-3); padding: .4rem .6rem;
+    background: transparent !important; border: none;
   }
   .otable td {
     padding: .55rem .6rem;
-    border-bottom: 1px solid rgba(255,255,255,.04);
-    color: var(--text);
+    border-bottom: 1px solid rgba(255,255,255,.03);
+    color: var(--fg-1);
     background: transparent !important;
     border-left: none; border-right: none; border-top: none;
   }
   .otable tbody tr:last-child td { border-bottom: none; }
-  .otable tbody tr:hover td { background: rgba(255,255,255,.025) !important; }
+  .otable tbody tr:hover td { background: rgba(255,255,255,.02) !important; }
   .tr { text-align: right; }
   .tc { text-align: center; }
 
+  /* Win-rate gauge in opening table */
+  .win-gauge { display: flex; align-items: center; gap: 6px; }
+  .win-gauge-track {
+    width: 52px; height: 5px;
+    background: var(--surface-3); border-radius: 99px; overflow: hidden; flex-shrink: 0;
+  }
+  .win-gauge-fill { height: 100%; border-radius: 99px; transition: width .5s; }
+  .win-pct { font-family: var(--font-mono); font-size: .78rem; font-weight: 500; width: 30px; text-align: right; }
+
   /* ── Findings ────────────────────────────────────────── */
   .finding {
-    border: 1px solid var(--border);
-    border-left: 3px solid;
-    border-radius: var(--radius-sm);
+    border: 1px solid var(--line-2);
+    border-radius: var(--radius-md);
     padding: 1rem;
     margin-bottom: .75rem;
-    background: rgba(255,255,255,.015);
+    background: rgba(255,255,255,.012);
   }
   .finding:last-child { margin-bottom: 0; }
-  .finding.critical { border-left-color: var(--red); }
-  .finding.moderate { border-left-color: var(--yellow); }
-  .finding.minor    { border-left-color: var(--green); }
   .finding-meta { display: flex; align-items: center; gap: .5rem; margin-bottom: .45rem; flex-wrap: wrap; }
-  .finding-cat { font-size: .68rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); }
-  .finding-desc { font-size: .85rem; color: var(--text); line-height: 1.55; margin-bottom: .5rem; }
-  .finding-links { font-size: .75rem; color: var(--text-muted); margin-bottom: .45rem; }
-  .finding-links a { color: var(--green-light); }
+  .finding-cat { font-size: .68rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--fg-3); }
+  .finding-desc { font-size: .85rem; color: var(--fg-1); line-height: 1.55; margin-bottom: .5rem; }
+  .finding-links { font-size: .75rem; color: var(--fg-3); margin-bottom: .45rem; }
+  .finding-links a { color: var(--accent); }
+  /* Tip box: gold left border accent */
   .finding-tip {
-    font-size: .82rem; color: #b0c8e0; line-height: 1.6;
-    background: rgba(118,150,86,.07); border: 1px solid rgba(118,150,86,.18);
-    border-radius: 6px; padding: .55rem .75rem;
+    font-size: .82rem; color: var(--fg-2); line-height: 1.6;
+    background: var(--surface-2);
+    border-left: 2px solid var(--accent);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    padding: .55rem .75rem;
   }
   .tip-icon { margin-right: .3rem; }
 
   /* ── Strengths ───────────────────────────────────────── */
   .strength-item { display: flex; align-items: flex-start; gap: .55rem; padding: .5rem 0; }
-  .strength-item + .strength-item { border-top: 1px solid rgba(255,255,255,.04); }
-  .s-check { color: var(--green-light); flex-shrink: 0; font-size: .95rem; line-height: 1.5; }
-  .s-text  { font-size: .84rem; color: var(--text); }
+  .strength-item + .strength-item { border-top: 1px solid rgba(255,255,255,.03); }
+  .s-check { color: var(--positive); flex-shrink: 0; font-size: .95rem; line-height: 1.5; }
+  .s-text  { font-size: .84rem; color: var(--fg-1); }
 
   /* ── Recommendations ─────────────────────────────────── */
   .rec-item { display: flex; gap: .85rem; padding: .85rem 0; }
-  .rec-item + .rec-item { border-top: 1px solid rgba(255,255,255,.04); }
-  .rec-num  { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--gold-light); flex-shrink: 0; width: 1.2rem; line-height: 1.4; }
-  .rec-text { font-size: .85rem; color: var(--text); line-height: 1.65; }
+  .rec-item + .rec-item { border-top: 1px solid rgba(255,255,255,.03); }
+  .rec-num  {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.5rem; height: 1.5rem; flex-shrink: 0;
+    font-family: var(--font-display); font-size: .75rem; font-weight: 700;
+    background: var(--accent-soft); color: var(--accent);
+    border: 1px solid var(--accent-line);
+    border-radius: var(--radius-sm);
+    margin-top: .1rem;
+  }
+  .rec-text { font-size: .85rem; color: var(--fg-1); line-height: 1.65; }
 
   /* ── No eval notice ──────────────────────────────────── */
   .no-eval-notice {
-    font-size: .82rem; color: var(--text-muted); line-height: 1.6;
-    border: 1px dashed rgba(118,150,86,.25);
-    border-radius: var(--radius-sm);
-    padding: .75rem .9rem;
+    font-size: .82rem; color: var(--fg-3); line-height: 1.6;
+    border-left: 2px solid var(--accent-lo);
+    background: var(--surface-2);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    padding: .65rem .9rem;
   }
 </style>
 {% endblock %}
@@ -175,7 +244,9 @@
 <!-- Navbar -->
 <nav class="navbar">
   <a href="/" class="navbar-brand">
-    <span class="piece">&#9822;</span>
+    <svg class="piece" style="width:1.35rem;height:1.35rem;filter:drop-shadow(0 0 6px var(--accent));" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+      <path d="M9 27h14v-2H9v2zm1.5-4h11l-1-3H22c1.1 0 2-.9 2-2v-1c0-1.1-.9-2-2-2h-1.5l-2-5c.9-.5 1.5-1.5 1.5-2.6C20 9.1 18.2 7.5 16 7c-.3-1.1-1.3-2-2.5-2C12.1 5 11 6.1 11 7.5c0 .6.2 1.1.5 1.5L10 12H9c-1.1 0-2 .9-2 2v1c0 1.1.9 2 2 2h.5l-1 3z"/>
+    </svg>
     Chess <span class="accent">Analyser</span>
   </a>
   <a href="/" class="navbar-action">&larr; New analysis</a>
@@ -185,9 +256,10 @@
 
   <!-- ── Hero ───────────────────────────────────────────── -->
   {% set total = (r.wins + r.draws + r.losses) or 1 %}
+  {% set win_pct = (r.wins / total * 100) | int %}
   <div class="hero">
     <div class="hero-inner">
-      <div>
+      <div style="flex:1;min-width:200px;">
         <div class="hero-name">{{ r.username }}</div>
         <div class="hero-meta">
           {{ r.games_analyzed }} games
@@ -195,20 +267,38 @@
           {{ r.date_range[1] }} to {{ r.date_range[0] }}
           {% if r.games_with_evals > 0 and r.games_with_evals < r.games_analyzed %}
             &nbsp;&middot;&nbsp;
-            <span class="eval-warn">{{ r.games_with_evals }}/{{ r.games_analyzed }} with eval data</span>
+            <span class="eval-warn">{{ r.games_with_evals }}/{{ r.games_analyzed }} with eval</span>
           {% elif r.games_with_evals == r.games_analyzed and r.games_analyzed > 0 %}
             &nbsp;&middot;&nbsp;
-            <span style="color:var(--green-light);">{{ r.games_with_evals }}/{{ r.games_analyzed }} with eval ✓</span>
+            <span style="color:var(--positive);">{{ r.games_with_evals }}/{{ r.games_analyzed }} eval ✓</span>
           {% endif %}
         </div>
-      </div>
-      <div class="wdl">
-        <div class="wdl-nums">
-          <span class="text-green">{{ r.wins }}W</span>&nbsp;
-          <span class="text-yellow">{{ r.draws }}D</span>&nbsp;
-          <span class="text-red">{{ r.losses }}L</span>
+
+        <!-- Primary stats row -->
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <div class="hero-stat-val" style="color:var(--accent);">{{ win_pct }}%</div>
+            <div class="hero-stat-lbl">Win rate</div>
+          </div>
+          {% if r.games_with_evals > 0 %}
+          <div class="hero-stat">
+            <div class="hero-stat-val" style="color:var(--negative);">{{ "%.1f"|format(r.blunders_per_game) }}</div>
+            <div class="hero-stat-lbl">Blunders/game</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-val" style="color:var(--warning);">{{ "%.1f"|format(r.mistakes_per_game) }}</div>
+            <div class="hero-stat-lbl">Mistakes/game</div>
+          </div>
+          {% endif %}
         </div>
-        <div class="wdl-rate">{{ (r.wins / total * 100) | int }}% win rate</div>
+
+        <!-- W/D/L chips row -->
+        <div class="hero-wdl">
+          <span class="wdl-chip w">{{ r.wins }}W</span>
+          <span class="wdl-chip d">{{ r.draws }}D</span>
+          <span class="wdl-chip l">{{ r.losses }}L</span>
+          <span class="wdl-label">across {{ r.games_analyzed }} games</span>
+        </div>
       </div>
     </div>
   </div>
@@ -279,9 +369,9 @@
           {% for phase in ['opening', 'middlegame', 'endgame'] %}
             {% set rate = r.phase_error_rates.get(phase, 0.0) %}
             {% set pct  = [rate * 14, 100] | min | int %}
-            {% if rate >= 3.0 %}{% set col = 'var(--red)' %}
-            {% elif rate >= 1.5 %}{% set col = 'var(--yellow)' %}
-            {% else %}{% set col = 'var(--green)' %}{% endif %}
+            {% if rate >= 3.0 %}{% set col = 'var(--negative)' %}
+            {% elif rate >= 1.5 %}{% set col = 'var(--warning)' %}
+            {% else %}{% set col = 'var(--positive)' %}{% endif %}
             <div class="phase-item">
               <div class="phase-lbl">
                 {{ phase | capitalize }}{% if phase == worst_key[0] %}<span class="worst-chip">worst</span>{% endif %}
@@ -304,25 +394,25 @@
           {% if r.avg_time_opening %}
           <div class="time-item">
             <span class="text-muted small">Opening avg/move</span>
-            <span class="small">{{ "%.1f"|format(r.avg_time_opening) }}s</span>
+            <span class="small mono">{{ "%.1f"|format(r.avg_time_opening) }}s</span>
           </div>
           {% endif %}
           {% if r.avg_time_middlegame %}
           <div class="time-item">
             <span class="text-muted small">Middlegame avg/move</span>
-            <span class="small">{{ "%.1f"|format(r.avg_time_middlegame) }}s</span>
+            <span class="small mono">{{ "%.1f"|format(r.avg_time_middlegame) }}s</span>
           </div>
           {% endif %}
           {% if r.avg_time_endgame %}
           <div class="time-item">
             <span class="text-muted small">Endgame avg/move</span>
-            <span class="small {% if r.avg_time_endgame > 60 %}text-yellow{% endif %}">{{ "%.1f"|format(r.avg_time_endgame) }}s</span>
+            <span class="small mono {% if r.avg_time_endgame > 60 %}text-yellow{% endif %}">{{ "%.1f"|format(r.avg_time_endgame) }}s</span>
           </div>
           {% endif %}
           {% if r.time_pressure_blunders > 0 %}
-          <div class="time-item" style="border-top:1px solid var(--border-green);margin-top:.3rem;padding-top:.45rem;">
+          <div class="time-item" style="border-top:1px solid var(--accent-line);margin-top:.3rem;padding-top:.45rem;">
             <span class="text-muted small">Time-pressure blunders</span>
-            <span class="small text-red">{{ r.time_pressure_blunders }} across {{ r.time_pressure_games }} games</span>
+            <span class="small text-red mono">{{ r.time_pressure_blunders }} across {{ r.time_pressure_games }} games</span>
           </div>
           {% endif %}
         </div>
@@ -350,7 +440,7 @@
                   <th>Opening</th>
                   <th class="tc">G</th>
                   <th class="tc">W/D/L</th>
-                  <th class="tr">Win%</th>
+                  <th class="tr" style="min-width:96px;">Win%</th>
                   <th class="tr">Blunders/g</th>
                   <th class="tc">Side</th>
                 </tr>
@@ -359,18 +449,27 @@
                 {% for s in qualifying.items | sort(attribute='games_played', reverse=True) %}
                 {% set wp = (s.win_rate * 100) | int %}
                 {% set display_name = eco_names.get(s.family, s.family) %}
+                {% if wp >= 55 %}{% set gauge_col = 'var(--positive)' %}
+                {% elif wp < 40 %}{% set gauge_col = 'var(--negative)' %}
+                {% else %}{% set gauge_col = 'var(--accent)' %}{% endif %}
                 <tr>
                   <td>
                     <span title="{{ display_name }}">{{ display_name[:32] }}{% if display_name|length > 32 %}…{% endif %}</span>
-                    {% if s.family != display_name %}<br><span style="font-size:.65rem;color:var(--text-dim);">{{ s.family }}</span>{% endif %}
                   </td>
                   <td class="tc text-muted">{{ s.games_played }}</td>
                   <td class="tc text-muted">{{ s.wins }}/{{ s.draws }}/{{ s.losses }}</td>
-                  <td class="tr {% if wp >= 55 %}text-green{% elif wp < 40 %}text-red{% endif %}">{{ wp }}%</td>
+                  <td class="tr">
+                    <div class="win-gauge" style="justify-content:flex-end;">
+                      <div class="win-gauge-track">
+                        <div class="win-gauge-fill" style="width:{{ wp }}%;background:{{ gauge_col }};"></div>
+                      </div>
+                      <span class="win-pct" style="color:{{ gauge_col }};">{{ wp }}%</span>
+                    </div>
+                  </td>
                   {% if s.games_with_evals > 0 %}
-                  <td class="tr {% if s.avg_blunders >= 2.0 %}text-red{% elif s.avg_blunders < 1.0 %}text-green{% endif %}">{{ "%.1f"|format(s.avg_blunders) }}</td>
+                  <td class="tr mono {% if s.avg_blunders >= 2.0 %}text-red{% elif s.avg_blunders < 1.0 %}text-green{% endif %}">{{ "%.1f"|format(s.avg_blunders) }}</td>
                   {% else %}
-                  <td class="tr" style="color:var(--text-dim);">—</td>
+                  <td class="tr" style="color:var(--fg-4);">—</td>
                   {% endif %}
                   <td class="tc text-muted small">
                     {% if s.as_white %}W:{{ s.as_white }}{% endif %}{% if s.as_white and s.as_black %} {% endif %}{% if s.as_black %}B:{{ s.as_black }}{% endif %}
@@ -390,11 +489,11 @@
         <div class="card-body">
           <div class="section-label">Weaknesses <span>— address these first</span></div>
           {% for w in r.weaknesses %}
-          <div class="finding {{ w.severity }}">
+          <div class="finding">
             <div class="finding-meta">
-              {% if w.severity == 'critical' %}<span class="badge badge-critical">Fix first</span>
-              {% elif w.severity == 'moderate' %}<span class="badge badge-moderate">Work on this</span>
-              {% else %}<span class="badge badge-minor">Minor</span>{% endif %}
+              {% if w.severity == 'critical' %}<span class="badge badge-negative">Fix first</span>
+              {% elif w.severity == 'moderate' %}<span class="badge badge-warning">Work on this</span>
+              {% else %}<span class="badge badge-positive">Minor</span>{% endif %}
               <span class="finding-cat">{{ w.category.replace('_', ' ') }}</span>
             </div>
             <div class="finding-desc">{{ w.description }}</div>
@@ -435,7 +534,7 @@
           <div class="section-label">Recommendations <span>— ordered by impact</span></div>
           {% for rec in r.recommendations %}
           <div class="rec-item">
-            <div class="rec-num">{{ loop.index }}.</div>
+            <div class="rec-num">{{ loop.index }}</div>
             <div class="rec-text">{{ rec }}</div>
           </div>
           {% endfor %}

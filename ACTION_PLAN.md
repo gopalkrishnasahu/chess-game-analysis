@@ -157,6 +157,34 @@ docker run -e LICHESS_USERNAME=yourname ghcr.io/you/chess-insight
 
 ---
 
+## Phase 3.7 — UI/UX Design Overhaul (Professional Look & Feel)
+
+**Goal:** Make the app look like it was designed by a real product team — not AI-generated or hobbyist. Reference: tools like Notion, Linear, Vercel dashboard — clean, opinionated, high-trust.
+
+**Action:** Work session with Claude (design mode) to review and redesign the interface.
+
+### What to bring to that session
+- Screenshots of the current app (index, loading, report pages)
+- Reference apps / design inspiration (e.g. chess24, lichess new UI, Sigma Chess, chessigma.com)
+- Specific pain points: anything that "looks off", feels crowded, or feels generic
+
+### Areas to audit and potentially redesign
+1. **Typography** — font pairing, sizing scale, weight contrast; Playfair Display + Inter is decent but may not be distinctive enough
+2. **Colour palette** — current green/dark feels chess-generic; a more considered accent colour + neutral system could feel premium
+3. **Hero / report header** — W/D/L layout, username display, date range — could be a more impactful dashboard header
+4. **Card hierarchy** — all cards look the same weight; a visual hierarchy (primary / secondary / tertiary) would guide the eye
+5. **Opening table** — currently functional but plain; could use subtle row banding, sticky header, better column proportions
+6. **Findings cards** (weaknesses/strengths) — the left-border treatment is good; badge, category label and tip box spacing could be tighter
+7. **Mobile layout** — test on actual phone; 2-col grid stacking behaviour
+8. **Loading page** — the animated knight + fact box is good; step indicator could be more polished (stepper component style)
+9. **Empty/no-eval states** — currently a dashed box; could be a more intentional "no data" illustration or pattern
+10. **Micro-details** — hover states, focus rings, link styles, divider lines, button radius consistency
+
+### Outcome
+A redesign spec or direct CSS/template changes that make the app feel production-grade, building trust with first-time visitors who don't know the tool yet.
+
+---
+
 ## Phase 4 — Advanced Analysis Features
 
 ### 4.1 Tactical Pattern Classification (with Stockfish)
