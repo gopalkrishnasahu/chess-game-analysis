@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; max-width: 100%; }
 
     /* ── Design tokens ───────────────────────────────────── */
     :root {
@@ -342,7 +342,7 @@
 
     /* ── Kill browser table defaults ────────────────────── */
     table { border-collapse: collapse; background: transparent; }
-    thead, tbody, tr, th, td { background: transparent !important; }
+    thead, tbody, tr, th, td { background: transparent !important; max-width: none; }
 
     /* ── Utility ─────────────────────────────────────────── */
     .text-green  { color: var(--positive) !important; }
