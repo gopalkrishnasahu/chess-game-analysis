@@ -120,13 +120,19 @@
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--accent-line);
-      padding: 0.8rem 1.2rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      padding: 0;
       position: sticky;
       top: 0;
       z-index: 100;
+    }
+    /* Inner wrapper matches page content width so brand/action align with content */
+    .navbar-inner {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0.8rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
     .navbar-brand {
       display: flex;
