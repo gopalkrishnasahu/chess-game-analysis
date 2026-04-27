@@ -6,11 +6,10 @@
 <style>
   @keyframes pulse-piece { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.75;transform:scale(.93)} }
   .piece-anim {
-    display: block; margin: 0 auto;
-    width: 2.8rem; height: 2.8rem;
     color: var(--accent);
     animation: pulse-piece 1.4s ease-in-out infinite;
     filter: drop-shadow(0 0 12px rgba(230,193,122,0.5));
+    line-height: 1;
   }
 
   /* Step list */
@@ -70,9 +69,7 @@
       <div class="card">
         <div class="card-body text-center" style="padding: 2.4rem 2rem 2rem;">
 
-          <svg class="piece-anim" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
-            <path d="M9 27h14v-2H9v2zm1.5-4h11l-1-3H22c1.1 0 2-.9 2-2v-1c0-1.1-.9-2-2-2h-1.5l-2-5c.9-.5 1.5-1.5 1.5-2.6C20 9.1 18.2 7.5 16 7c-.3-1.1-1.3-2-2.5-2C12.1 5 11 6.1 11 7.5c0 .6.2 1.1.5 1.5L10 12H9c-1.1 0-2 .9-2 2v1c0 1.1.9 2 2 2h.5l-1 3z"/>
-          </svg>
+          <span class="piece-anim" style="font-size:2.8rem;display:block;">&#9822;</span>
 
           <h2 style="font-size:1.35rem;margin:.8rem 0 .3rem;">
             Analysing <span style="color:var(--accent);">{{ username }}</span>

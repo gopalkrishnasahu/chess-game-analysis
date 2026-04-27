@@ -13,6 +13,31 @@
     .page-wrap { padding: 1rem .75rem 2.5rem; }
   }
 
+  /* ── Mobile overrides ────────────────────────────────── */
+  @media (max-width: 480px) {
+    /* Hero */
+    .hero { padding: 1.1rem 1rem; }
+    .hero-name { font-size: 1.4rem; }
+    .hero-stat-val { font-size: 2.2rem; }
+    .hero-stats { gap: 1rem; }
+
+    /* Pills — narrower on phone */
+    .pills { gap: .35rem; }
+    .pill-val { font-size: 1.3rem; }
+
+    /* Opening table — hide least-important columns on very small screens */
+    .otable .hide-mobile { display: none; }
+
+    /* Win gauge — tighter on mobile */
+    .win-gauge-track { width: 36px; }
+
+    /* Cards — reduce inner padding */
+    .section-card .card-body { padding: .9rem; }
+
+    /* Phase item — slightly tighter */
+    .phase-item { grid-template-columns: 70px 1fr 30px; gap: .5rem; }
+  }
+
   /* ── Hero ────────────────────────────────────────────── */
   .hero {
     background: var(--surface-1);
@@ -244,9 +269,7 @@
 <!-- Navbar -->
 <nav class="navbar">
   <a href="/" class="navbar-brand">
-    <svg class="piece" style="width:1.35rem;height:1.35rem;filter:drop-shadow(0 0 6px var(--accent));" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
-      <path d="M9 27h14v-2H9v2zm1.5-4h11l-1-3H22c1.1 0 2-.9 2-2v-1c0-1.1-.9-2-2-2h-1.5l-2-5c.9-.5 1.5-1.5 1.5-2.6C20 9.1 18.2 7.5 16 7c-.3-1.1-1.3-2-2.5-2C12.1 5 11 6.1 11 7.5c0 .6.2 1.1.5 1.5L10 12H9c-1.1 0-2 .9-2 2v1c0 1.1.9 2 2 2h.5l-1 3z"/>
-    </svg>
+    <span class="piece" style="font-size:1.35rem;filter:drop-shadow(0 0 6px var(--accent));">&#9822;</span>
     Chess <span class="accent">Analyser</span>
   </a>
   <a href="/" class="navbar-action">&larr; New analysis</a>
@@ -442,7 +465,7 @@
                   <th class="tc">W/D/L</th>
                   <th class="tr" style="min-width:96px;">Win%</th>
                   <th class="tr">Blunders/g</th>
-                  <th class="tc">Side</th>
+                  <th class="tc hide-mobile">Side</th>
                 </tr>
               </thead>
               <tbody>
@@ -471,7 +494,7 @@
                   {% else %}
                   <td class="tr" style="color:var(--fg-4);">—</td>
                   {% endif %}
-                  <td class="tc text-muted small">
+                  <td class="tc text-muted small hide-mobile">
                     {% if s.as_white %}W:{{ s.as_white }}{% endif %}{% if s.as_white and s.as_black %} {% endif %}{% if s.as_black %}B:{{ s.as_black }}{% endif %}
                   </td>
                 </tr>
