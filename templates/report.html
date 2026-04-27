@@ -15,26 +15,27 @@
 
   /* ── Mobile overrides ────────────────────────────────── */
   @media (max-width: 480px) {
-    /* Hero */
+    /* Hero — tighter padding and slightly smaller numbers */
     .hero { padding: 1.1rem 1rem; }
     .hero-name { font-size: 1.4rem; }
     .hero-stat-val { font-size: 2.2rem; }
     .hero-stats { gap: 1rem; }
 
-    /* Pills — narrower on phone */
+    /* Pills */
     .pills { gap: .35rem; }
     .pill-val { font-size: 1.3rem; }
-
-    /* Opening table — hide least-important columns on very small screens */
-    .otable .hide-mobile { display: none; }
-
-    /* Win gauge — tighter on mobile */
-    .win-gauge-track { width: 36px; }
 
     /* Cards — reduce inner padding */
     .section-card .card-body { padding: .9rem; }
 
-    /* Phase item — slightly tighter */
+    /* Opening table — smaller font so all columns still show */
+    .otable { font-size: .72rem; }
+    .otable th { font-size: .55rem; padding: .3rem .4rem; }
+    .otable td { padding: .45rem .4rem; }
+    .win-gauge-track { width: 32px; }
+    .win-pct { width: 26px; font-size: .7rem; }
+
+    /* Phase item */
     .phase-item { grid-template-columns: 70px 1fr 30px; gap: .5rem; }
   }
 
@@ -465,7 +466,7 @@
                   <th class="tc">W/D/L</th>
                   <th class="tr" style="min-width:96px;">Win%</th>
                   <th class="tr">Blunders/g</th>
-                  <th class="tc hide-mobile">Side</th>
+                  <th class="tc">Side</th>
                 </tr>
               </thead>
               <tbody>
@@ -494,7 +495,7 @@
                   {% else %}
                   <td class="tr" style="color:var(--fg-4);">—</td>
                   {% endif %}
-                  <td class="tc text-muted small hide-mobile">
+                  <td class="tc text-muted small">
                     {% if s.as_white %}W:{{ s.as_white }}{% endif %}{% if s.as_white and s.as_black %} {% endif %}{% if s.as_black %}B:{{ s.as_black }}{% endif %}
                   </td>
                 </tr>
