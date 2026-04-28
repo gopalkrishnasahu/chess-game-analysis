@@ -188,6 +188,8 @@
   const STEP_TRIGGERS = [
     { key: "Fetching",            step: 1 },
     { key: "Parsing",             step: 2 },
+    { key: "Running Stockfish",   step: 3 },
+    { key: "Stockfish:",          step: 3 },
     // Cloud eval only runs for PGN uploads
     { key: "cloud evaluations",   step: source === "pgn" ? 3 : 2 },
     { key: "Cloud eval:",         step: source === "pgn" ? 3 : 2 },

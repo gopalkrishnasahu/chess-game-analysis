@@ -532,13 +532,20 @@
           </div>
         </div>
       </div>
+      {% else %}
+      <div class="card section-card">
+        <div class="card-body">
+          <div class="section-label">Opening Breakdown <span>3+ games</span></div>
+          <p class="text-muted small" style="padding:0.5rem 0;">No opening has been played 3+ times yet. Analyse more games to see a breakdown by opening.</p>
+        </div>
+      </div>
       {% endif %}
 
       <!-- Weaknesses -->
-      {% if r.weaknesses %}
       <div class="card section-card">
         <div class="card-body">
           <div class="section-label">Weaknesses <span>— address these first</span></div>
+          {% if r.weaknesses %}
           {% for w in r.weaknesses %}
           <div class="finding">
             <div class="finding-meta">
@@ -559,39 +566,45 @@
             <div class="finding-tip"><span class="tip-icon">&#128161;</span>{{ w.recommendation }}</div>
           </div>
           {% endfor %}
+          {% else %}
+          <p class="text-muted small" style="padding:0.5rem 0;">No clear weaknesses detected yet — analyse more games (20+) for reliable pattern detection.</p>
+          {% endif %}
         </div>
       </div>
-      {% endif %}
 
       <!-- Strengths -->
-      {% if r.strengths %}
       <div class="card section-card">
         <div class="card-body">
           <div class="section-label">Strengths <span>— keep doing these</span></div>
+          {% if r.strengths %}
           {% for s in r.strengths %}
           <div class="strength-item">
             <span class="s-check">&#10003;</span>
             <span class="s-text">{{ s.description }}</span>
           </div>
           {% endfor %}
+          {% else %}
+          <p class="text-muted small" style="padding:0.5rem 0;">Not enough data to identify strengths yet — try analysing 20+ games.</p>
+          {% endif %}
         </div>
       </div>
-      {% endif %}
 
       <!-- Recommendations -->
-      {% if r.recommendations %}
       <div class="card section-card">
         <div class="card-body">
           <div class="section-label">Recommendations <span>— ordered by impact</span></div>
+          {% if r.recommendations %}
           {% for rec in r.recommendations %}
           <div class="rec-item">
             <div class="rec-num">{{ loop.index }}</div>
             <div class="rec-text">{{ rec }}</div>
           </div>
           {% endfor %}
+          {% else %}
+          <p class="text-muted small" style="padding:0.5rem 0;">Recommendations appear once patterns are detected — analyse 20+ games to unlock this section.</p>
+          {% endif %}
         </div>
       </div>
-      {% endif %}
 
     </div><!-- /right -->
   </div><!-- /grid -->

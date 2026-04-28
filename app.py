@@ -150,11 +150,29 @@ def stream():
             needs_eval = sum(1 for g in game_records if not g.has_evals)
             if needs_eval:
                 if get_stockfish_path():
-                    yield _msg(
-                        f"Running Stockfish on {needs_eval} games "
-                        f"(depth 12, ~{needs_eval * 3}s)..."
-                    )
-                    game_records = enrich_games_with_stockfish(game_records, pgn_blocks, depth=12)
+                    from chess_analyzer.stockfish_eval import _eval_game
+                    from concurrent.futures import ThreadPoolExecutor, as_completed
+                    WORKERS = 4  # parallel Stockfish instances; safe on 4GB RAM
+                    DEPTH   = 12
+                    sf_path = get_stockfish_path()
+                    needs_eval_list = [g for g in game_records if not g.has_evals]
+                    total = len(needs_eval_list)
+                    yield _msg(f"Running Stockfish on {total} games (depth {DEPTH}, {WORKERS} parallel)...")
+
+                    def _analyse_one(game):
+                        import chess.engine
+                        eng = chess.engine.SimpleEngine.popen_uci(sf_path)
+                        eng.configure({"Threads": 1, "Hash": 64})
+                        _eval_game(game, eng, DEPTH)
+                        eng.quit()
+                        return game
+
+                    completed = 0
+                    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+                        futures = {pool.submit(_analyse_one, g): g for g in needs_eval_list}
+                        for future in as_completed(futures):
+                            completed += 1
+                            yield _msg(f"Stockfish: analysed game {completed}/{total}...")
                 elif source == "pgn":
                     # PGN uploads may come from Lichess — cloud eval is worthwhile
                     yield _msg(

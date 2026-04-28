@@ -18,6 +18,19 @@ def get_stockfish_path() -> Optional[str]:
     return None
 
 
+def open_engine() -> Optional[chess.engine.SimpleEngine]:
+    """Open and return a configured Stockfish engine, or None if unavailable."""
+    path = get_stockfish_path()
+    if not path:
+        return None
+    try:
+        engine = chess.engine.SimpleEngine.popen_uci(path)
+        engine.configure({"Threads": 1, "Hash": 64})
+        return engine
+    except Exception:
+        return None
+
+
 def enrich_games_with_stockfish(
     game_records,
     pgn_blocks: list[str],
@@ -26,12 +39,7 @@ def enrich_games_with_stockfish(
     """
     For each game without eval data, run Stockfish and fill in eval_after
     on each MoveRecord. Returns the updated game_records list.
-
-    progress_cb: optional callable(message: str) for SSE progress updates.
-    depth: Stockfish analysis depth (12 = fast+accurate enough for pattern detection).
     """
-    from .models import GameRecord
-
     path = get_stockfish_path()
     if not path:
         return game_records
@@ -42,13 +50,10 @@ def enrich_games_with_stockfish(
 
     try:
         engine = chess.engine.SimpleEngine.popen_uci(path)
-        engine.configure({"Threads": 1, "Hash": 32})  # conservative for shared hosting
-
+        engine.configure({"Threads": 1, "Hash": 64})
         for _, game in needs_eval:
             _eval_game(game, engine, depth)
-
         engine.quit()
-
     except Exception:
         return game_records
 

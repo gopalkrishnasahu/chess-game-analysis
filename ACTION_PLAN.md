@@ -191,10 +191,11 @@ Full design system applied across all four templates (`base.html`, `report.html`
 
 ## Immediate Next Steps (for next session)
 
-1. **Stockfish integration** (Phase 2.1) — biggest unlock for eval coverage
-   - Download Stockfish from https://stockfishchess.org/download/
-   - Add path to `.env` as `STOCKFISH_PATH=C:/path/to/stockfish.exe`
-   - Unlocks blunder detection for 100% of games (currently ~60% on Lichess, 0% on Chess.com)
+1. **Full deploy on Linode** (Phase 2.1 — IN PROGRESS) — Stockfish installed, app deployment next
+   - Stockfish already installed on Linode server ✓
+   - Deploy script: `scripts/deploy_linode.sh` — clone repo, set up gunicorn + nginx
+   - **TODO:** Run `deploy_linode.sh` on the Linode server, app will be live at server IP
+   - Render.com can be left running or shut down after confirming Linode works
 
 2. **Lichess resource deep-links** (Phase 3.6.4) — quick win, high player value
    - Create `chess_analyzer/resources.py` with static weakness→URL mappings
