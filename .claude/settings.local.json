@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python main.py --games 50 --output terminal)",
+      "Bash(curl -s \"https://lichess.org/game/export/kwYPjDnA?evals=true&clocks=true&opening=true\" -H \"Accept: application/x-chess-pgn\")",
+      "Bash(curl -s \"https://lichess.org/game/export/WJCnWkyZ?evals=true&clocks=true&opening=true\" -H \"Accept: application/x-chess-pgn\")",
+      "Bash(curl -s \"https://lichess.org/game/export/tXqTZsFl?evals=true&clocks=true&opening=true\" -H \"Accept: application/x-chess-pgn\")",
+      "Bash(python main.py --games 150 --output terminal --cache)",
+      "Bash(python -c \":*)",
+      "Bash(python -c \"import json; h=json.load\\(open\\(''''run_history.json''''\\)\\); print\\(f''''History entries: {len\\(h\\)} \\(should be 1\\)''''\\)\")",
+      "Bash(python -c \"from chess_analyzer.models import AnalysisReport, GameRecord; from chess_analyzer.analyzer import aggregate_games; from chess_analyzer.patterns import detect_patterns; from chess_analyzer.report import print_terminal_report; print\\(''All imports OK''\\)\")",
+      "Bash(python -m py_compile chess_analyzer/models.py chess_analyzer/analyzer.py chess_analyzer/patterns.py chess_analyzer/report.py)",
+      "Bash(curl -s \"http://127.0.0.1:5000/loading?source=chesscom&username=hikaru&games=10&perf=blitz\")",
+      "Bash(curl -s \"http://127.0.0.1:5000/loading?source=pgn&username=Player&games=&perf=&pgn_token=abc123\")",
+      "Bash(python -c \"import app; print\\(''OK''\\)\")",
+      "Bash(python -c \"import app; from chess_analyzer.stockfish_eval import get_stockfish_path; print\\('OK, stockfish path:', get_stockfish_path\\(\\)\\)\")",
+      "Bash(python -c \"import app; from chess_analyzer.cloud_eval import enrich_games_with_cloud_eval; print\\('OK'\\)\")",
+      "Bash(python -c \"import app; print\\('OK'\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
+    ]
+  }
+}
